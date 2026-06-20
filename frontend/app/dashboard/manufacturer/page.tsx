@@ -3,25 +3,28 @@
 import { useAuth } from '@/lib/auth'
 import { apiClient, getStoredTokens } from '@/lib/api'
 import { useEffect, useState } from 'react'
-import { Package, TrendingUp, Users, ShoppingBag, ArrowRight, Plus } from 'lucide-react'
+import { Package, TrendingUp, Users, ShoppingBag, ArrowRight, Plus, FileText, Banknote } from 'lucide-react'
 import Link from 'next/link'
 
 export default function ManufacturerDashboard() {
   const { user } = useAuth()
   const [products, setProducts] = useState<any[]>([])
   const [manufacturer, setManufacturer] = useState<any>(null)
+  const [analytics, setAnalytics] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       try {
-        const [profile, productList] = await Promise.all([
-          apiClient('/catalog/manufacturers/me').catch(() => null),
-          apiClient('/catalog/products?limit=10').catch(() => []),
+        const [profile, productList, analyticsData] = await Promise.all([
+          apiClient('/portal/manufacturer/profile').catch(() => null),
+          apiClient('/portal/manufacturer/products?limit=10').catch(() => []),
+          apiClient('/portal/manufacturer/analytics').catch(() => null),
         ])
         setManufacturer(profile)
         setProducts(Array.isArray(productList) ? productList : [])
-      } catch {} finally { setLoading(false) }
+        setAnalytics(analyticsData)
+      } catch { } finally { setLoading(false) }
     }
     load()
   }, [])
@@ -78,6 +81,34 @@ export default function ManufacturerDashboard() {
             {manufacturer?.gstin || 'Not set'}
           </div>
           <p className="text-xs text-gray-400 mt-1">Tax identifier</p>
+        </div>
+      </div>
+
+      {/* LIFETIME PERFORMANCE ROW */}
+      <div className="space-y-4">
+        <h3 className="text-xl font-display font-bold uppercase tracking-tight">Lifetime Performance</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-gradient-to-br from-black to-gray-900 rounded-2xl p-6 shadow-card text-white">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Contracted Revenue</span>
+              <Banknote className="w-6 h-6 text-accent" />
+            </div>
+            <div className="text-4xl md:text-5xl font-display font-extrabold tracking-tighter">
+              ₹{Number(analytics?.contracted_revenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            </div>
+            <p className="text-xs text-gray-400 mt-2">Locked-in value from 60-year agreements</p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-card border-2 border-accent/20">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Active Agreements</span>
+              <FileText className="w-6 h-6 text-accent" />
+            </div>
+            <div className="text-4xl md:text-5xl font-display font-extrabold tracking-tighter text-black">
+              {analytics?.active_agreements || 0}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Households actively subscribed to your catalog</p>
+          </div>
         </div>
       </div>
 

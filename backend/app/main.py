@@ -38,6 +38,7 @@ from app.modules.analytics.router import router as analytics_router
 from app.modules.admin.router import router as admin_router
 from app.modules.config.router import router as config_router
 from app.modules.scheduling.router import router as scheduling_router
+from app.modules.manufacturer_portal.router import router as manufacturer_portal_router
 
 
 @asynccontextmanager
@@ -80,6 +81,7 @@ app.include_router(analytics_router, prefix="/api/v1", tags=["analytics"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(config_router, prefix="/api/v1", tags=["config"])
 app.include_router(scheduling_router, prefix="/api/v1", tags=["scheduling"])
+app.include_router(manufacturer_portal_router, prefix="/api/v1", tags=["manufacturer"])
 app.include_router(webhook_router, prefix="/webhook", tags=["webhooks"])
 
 

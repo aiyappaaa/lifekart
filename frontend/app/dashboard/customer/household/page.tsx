@@ -2,7 +2,7 @@
 
 import { apiClient } from '@/lib/api'
 import { useEffect, useState } from 'react'
-import { Users, Plus, Trash2, Loader2, CreditCard, Pencil, X } from 'lucide-react'
+import { Users, Plus, Trash2, Loader2, CreditCard, Pencil, X, Copy, CheckCircle2 } from 'lucide-react'
 import CreateHouseholdForm from './CreateHouseholdForm'
 import MemberModal from './MemberModal'
 import StripePaymentForm from '@/components/StripePaymentForm'
@@ -52,6 +52,15 @@ export default function HouseholdPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [loadingPayments, setLoadingPayments] = useState(false)
   const [showAddCard, setShowAddCard] = useState(false)
+  const [copiedId, setCopiedId] = useState(false)
+
+  const handleCopyId = () => {
+    if (household?.id) {
+      navigator.clipboard.writeText(household.id)
+      setCopiedId(true)
+      setTimeout(() => setCopiedId(false), 2000)
+    }
+  }
 
   async function load() {
     setLoading(true)
@@ -143,9 +152,22 @@ export default function HouseholdPage() {
       {activeTab === 'profile' && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl p-6 shadow-card">
-            <div className="flex items-center gap-3 mb-4">
-              <Users className="w-5 h-5 text-accent" />
-              <h3 className="text-lg font-display font-bold uppercase tracking-tight">Household Details</h3>
+            <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
+              <div className="flex items-center gap-3">
+                <Users className="w-5 h-5 text-accent" />
+                <h3 className="text-lg font-display font-bold uppercase tracking-tight">Household Details</h3>
+              </div>
+              <div className="flex items-center gap-2 bg-orange-50 border border-orange-100 px-3 py-1.5 rounded-lg">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-orange-800">Household ID:</span>
+                <code className="text-xs font-mono font-bold text-orange-900">{household.id}</code>
+                <button 
+                  onClick={handleCopyId}
+                  className="ml-2 text-orange-600 hover:text-orange-800 transition-colors"
+                  title="Copy ID"
+                >
+                  {copiedId ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>

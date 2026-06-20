@@ -92,22 +92,63 @@ class PayrollService:
         if not employees:
             raise ValueError("No active employees enrolled")
 
+        from app.modules.calculator.models import LifetimeSubscription
+
+        household_ids = [emp.household_id for emp in employees]
+        subs_query = select(LifetimeSubscription).where(
+            LifetimeSubscription.household_id.in_(household_ids),
+            LifetimeSubscription.status == 'active'
+        )
+        subs_result = await self.db.execute(subs_query)
+        all_active_subs = subs_result.scalars().all()
+        
+        subs_by_household = {}
+        for sub in all_active_subs:
+            subs_by_household.setdefault(sub.household_id, []).append(sub)
+
+        existing_query = select(PayrollDeduction).where(
+            PayrollDeduction.employee_enrollment_id.in_([emp.id for emp in employees]),
+            PayrollDeduction.pay_period_start == pay_period_start,
+            PayrollDeduction.pay_period_end == pay_period_end
+        )
+        existing_result = await self.db.execute(existing_query)
+        existing_deductions = {d.employee_enrollment_id: d for d in existing_result.scalars().all()}
+
         deductions = []
         for emp in employees:
-            subscription_value = partner.max_employee_benefit or 0
-            subsidy = (subscription_value * (partner.subsidy_percentage or 0)) / 100
+            active_subs = subs_by_household.get(emp.household_id, [])
+            
+            total_monthly_value = 0.0
+            for sub in active_subs:
+                deliveries_per_month = 30.0 / float(sub.frequency_days)
+                cost_per_month = float(sub.locked_unit_price) * float(sub.quantity_per_delivery) * deliveries_per_month
+                total_monthly_value += cost_per_month
+            
+            subscription_value = total_monthly_value
+            
+            calculated_subsidy = (subscription_value * float(partner.subsidy_percentage or 0)) / 100.0
+            subsidy = min(calculated_subsidy, float(partner.max_employee_benefit or 0))
             amount = subscription_value - subsidy
 
-            deduction = PayrollDeduction(
-                employee_enrollment_id=emp.id,
-                pay_period_start=pay_period_start,
-                pay_period_end=pay_period_end,
-                subscription_value=subscription_value,
-                employer_subsidy=subsidy,
-                amount_deducted=max(amount, 0),
-                deduction_scheduled_date=deduction_date,
-            )
-            self.db.add(deduction)
+            if emp.id in existing_deductions:
+                deduction = existing_deductions[emp.id]
+                if deduction.status == "pending":
+                    deduction.subscription_value = subscription_value
+                    deduction.employer_subsidy = subsidy
+                    deduction.amount_deducted = max(amount, 0)
+                    deduction.deduction_scheduled_date = deduction_date
+            else:
+                deduction = PayrollDeduction(
+                    employee_enrollment_id=emp.id,
+                    pay_period_start=pay_period_start,
+                    pay_period_end=pay_period_end,
+                    subscription_value=subscription_value,
+                    employer_subsidy=subsidy,
+                    amount_deducted=max(amount, 0),
+                    deduction_scheduled_date=deduction_date,
+                )
+                self.db.add(deduction)
+                
             deductions.append(deduction)
 
         await self.db.commit()

@@ -52,9 +52,20 @@ class CorporatePartnerResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CorporatePartnerAdminResponse(CorporatePartnerResponse):
+    total_employees_enrolled: int = 0
+    company_domain: str = ""
+
+
 class EmployeeEnrollCreate(BaseModel):
     household_id: uuid.UUID
     employee_id: str = Field(min_length=1, max_length=100)
+    department: str | None = Field(None, max_length=100)
+    designation: str | None = Field(None, max_length=100)
+
+
+class EmployeeEnrollUpdate(BaseModel):
+    employee_id: str | None = Field(None, min_length=1, max_length=100)
     department: str | None = Field(None, max_length=100)
     designation: str | None = Field(None, max_length=100)
 

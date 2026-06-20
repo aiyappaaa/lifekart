@@ -58,13 +58,16 @@ class ManufacturerCreate(BaseModel):
 
 class ManufacturerUpdate(BaseModel):
     company_name: str | None = Field(None, min_length=2, max_length=255)
-    gstin: str | None = Field(None, min_length=10, max_length=20)
-    address_line1: str | None = Field(None, max_length=255)
+    gstin: str | None = Field(None, min_length=15, max_length=15)
+    address_line1: str | None = Field(None, min_length=5, max_length=255)
     address_line2: str | None = Field(None, max_length=255)
-    city: str | None = Field(None, max_length=100)
-    state: str | None = Field(None, max_length=100)
-    pincode: str | None = Field(None, max_length=10)
-    contact_email: str | None = Field(None, max_length=255)
+    city: str | None = Field(None, min_length=2, max_length=100)
+    state: str | None = Field(None, min_length=2, max_length=100)
+    pincode: str | None = Field(None, min_length=6, max_length=10)
+    contact_email: str | None = Field(None, min_length=5, max_length=255)
+
+class ManufacturerUpdateStatus(BaseModel):
+    is_verified: bool
 
 
 class ManufacturerResponse(BaseModel):
@@ -82,6 +85,11 @@ class ManufacturerResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+class ManufacturerAnalyticsResponse(BaseModel):
+    active_agreements: int
+    contracted_revenue: Decimal
+    total_products: int
 
 
 # ── Products ──
@@ -127,6 +135,7 @@ class ProductResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    manufacturer_company: str | None = None
 
     model_config = {"from_attributes": True}
 

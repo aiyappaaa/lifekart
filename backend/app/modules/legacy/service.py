@@ -2,6 +2,7 @@ import uuid
 from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.legacy.models import LegacyNominee, LegacyActivation
@@ -149,6 +150,15 @@ class LegacyService:
         await self.db.commit()
         await self.db.refresh(activation)
         return activation
+
+    async def get_pending_activations(self) -> list[LegacyActivation]:
+        result = await self.db.execute(
+            select(LegacyActivation)
+            .options(joinedload(LegacyActivation.successor_nominee))
+            .where(LegacyActivation.status == "pending_verification")
+            .order_by(LegacyActivation.created_at.desc())
+        )
+        return list(result.scalars().all())
 
     async def approve_activation(self, activation_id: uuid.UUID) -> LegacyActivation:
         result = await self.db.execute(

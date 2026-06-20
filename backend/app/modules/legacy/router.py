@@ -80,6 +80,15 @@ async def verify_death(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+@router.get("/activations", response_model=list[LegacyActivationResponse])
+async def list_pending_activations(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.SUPERADMIN)),
+):
+    service = LegacyService(db)
+    return await service.get_pending_activations()
+
+
 @router.post("/activations/{activation_id}/approve", response_model=LegacyActivationResponse)
 async def approve_activation(
     activation_id: uuid.UUID,

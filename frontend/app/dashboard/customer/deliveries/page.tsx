@@ -153,10 +153,10 @@ export default function DeliveriesPage() {
               </div>
               <div className="flex items-center justify-between w-full md:w-auto md:justify-end gap-4 text-left md:text-right">
                 <div>
-                  <p className="text-xs text-gray-400">
-                    <Calendar className="w-3 h-3 inline mr-1" />
-                    Scheduled for: {new Date(d.scheduled_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </p>
+                  <div className="text-xs text-gray-400 flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {d.status === 'delivered' ? 'Delivered on: ' : 'Scheduled for: '} {new Date(d.status === 'delivered' && d.actual_delivery_date ? d.actual_delivery_date : d.scheduled_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </div>
                   <span className={`text-xs font-bold uppercase ${
                     d.status === 'delivered' ? 'text-green-600' :
                     d.status === 'pending' || d.status === 'partially_filled' ? 'text-amber-600' :
@@ -189,7 +189,9 @@ export default function DeliveriesPage() {
                 </div>
                 <div>
                   <h3 className="text-xl font-display font-bold uppercase tracking-tight">{selectedDelivery.product?.name || 'Product'}</h3>
-                  <p className="text-sm text-gray-500">{Math.ceil(selectedDelivery.quantity)} units scheduled for {new Date(selectedDelivery.scheduled_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                  <p className="text-sm text-gray-500">
+                    {Math.ceil(selectedDelivery.quantity)} units {selectedDelivery.status === 'delivered' ? 'delivered on' : 'scheduled for'} {new Date(selectedDelivery.status === 'delivered' && selectedDelivery.actual_delivery_date ? selectedDelivery.actual_delivery_date : selectedDelivery.scheduled_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
                 </div>
               </div>
               <button 
@@ -298,6 +300,8 @@ export default function DeliveriesPage() {
                         {selectedDelivery.tracking_number}
                       </p>
                     </div>
+                  ) : selectedDelivery.status === 'delivered' ? (
+                    <p className="text-sm text-gray-500">Package was successfully delivered.</p>
                   ) : (
                     <p className="text-sm text-gray-500">Tracking information will be available once the order is shipped.</p>
                   )}

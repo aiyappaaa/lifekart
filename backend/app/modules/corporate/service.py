@@ -9,6 +9,7 @@ from app.modules.corporate.schemas import (
     CorporatePartnerCreate,
     CorporatePartnerUpdate,
     EmployeeEnrollCreate,
+    EmployeeEnrollUpdate,
 )
 
 
@@ -68,8 +69,6 @@ class CorporateService:
 
     async def enroll_employee(self, user_id: uuid.UUID, data: EmployeeEnrollCreate) -> EmployeeEnrollment:
         partner = await self.get_my_partner(user_id)
-        if partner.partnership_status != "active":
-            raise ValueError("Corporate partnership is not yet active")
 
         existing = await self.db.execute(
             select(EmployeeEnrollment).where(
@@ -86,6 +85,7 @@ class CorporateService:
             employee_id=data.employee_id,
             department=data.department,
             designation=data.designation,
+            is_active=(partner.partnership_status == "active"),
         )
         self.db.add(enrollment)
         await self.db.flush()
@@ -94,13 +94,34 @@ class CorporateService:
 
     async def get_employees(self, user_id: uuid.UUID) -> list[EmployeeEnrollment]:
         partner = await self.get_my_partner(user_id)
-        result = await self.db.execute(
-            select(EmployeeEnrollment).where(
+        if partner.partnership_status == "pending":
+            query = select(EmployeeEnrollment).where(EmployeeEnrollment.corporate_id == partner.id)
+        else:
+            query = select(EmployeeEnrollment).where(
                 EmployeeEnrollment.corporate_id == partner.id,
                 EmployeeEnrollment.is_active == True,
             )
-        )
+        result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    async def update_employee(self, user_id: uuid.UUID, enrollment_id: uuid.UUID, data: EmployeeEnrollUpdate) -> EmployeeEnrollment:
+        partner = await self.get_my_partner(user_id)
+        result = await self.db.execute(
+            select(EmployeeEnrollment).where(
+                EmployeeEnrollment.id == enrollment_id,
+                EmployeeEnrollment.corporate_id == partner.id,
+            )
+        )
+        enrollment = result.scalar_one_or_none()
+        if not enrollment:
+            raise ValueError("Enrollment not found")
+
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(enrollment, field, value)
+
+        await self.db.flush()
+        await self.db.refresh(enrollment)
+        return enrollment
 
     async def remove_employee(self, user_id: uuid.UUID, enrollment_id: uuid.UUID) -> None:
         partner = await self.get_my_partner(user_id)
@@ -123,14 +144,76 @@ class CorporateService:
         partner = result.scalar_one_or_none()
         if not partner:
             raise ValueError("Corporate partner not found")
-        if partner.partnership_status != "pending":
+        if partner.partnership_status not in ["pending", "suspended"]:
             raise ValueError(f"Cannot approve partner with status '{partner.partnership_status}'")
+            
         partner.partnership_status = "active"
         partner.agreement_signed_at = datetime.now(timezone.utc)
+        
+        # Superadmin Activation Trigger: activate all staged employees
+        from sqlalchemy import update
+        await self.db.execute(
+            update(EmployeeEnrollment)
+            .where(EmployeeEnrollment.corporate_id == partner.id)
+            .values(is_active=True)
+        )
+        
         await self.db.flush()
         await self.db.refresh(partner)
         return partner
 
-    async def list_all_partners(self) -> list[CorporatePartner]:
-        result = await self.db.execute(select(CorporatePartner))
-        return list(result.scalars().all())
+    async def suspend_partner(self, partner_id: uuid.UUID) -> CorporatePartner:
+        result = await self.db.execute(
+            select(CorporatePartner).where(CorporatePartner.id == partner_id)
+        )
+        partner = result.scalar_one_or_none()
+        if not partner:
+            raise ValueError("Corporate partner not found")
+            
+        partner.partnership_status = "suspended"
+        
+        # Suspend all employees
+        from sqlalchemy import update
+        await self.db.execute(
+            update(EmployeeEnrollment)
+            .where(EmployeeEnrollment.corporate_id == partner.id)
+            .values(is_active=False)
+        )
+        
+        await self.db.flush()
+        await self.db.refresh(partner)
+        return partner
+
+    async def list_all_partners(self) -> list[dict]:
+        from sqlalchemy import func
+        query = (
+            select(CorporatePartner, func.count(EmployeeEnrollment.id).label("enrollment_count"))
+            .outerjoin(EmployeeEnrollment, CorporatePartner.id == EmployeeEnrollment.corporate_id)
+            .group_by(CorporatePartner.id)
+        )
+        result = await self.db.execute(query)
+        rows = result.all()
+        
+        partners = []
+        for partner, count in rows:
+            p_dict = {
+                "id": partner.id,
+                "user_id": partner.user_id,
+                "company_name": partner.company_name,
+                "gstin": partner.gstin,
+                "industry": partner.industry,
+                "employee_count": partner.employee_count,
+                "contact_email": partner.contact_email,
+                "address_line1": partner.address_line1,
+                "city": partner.city,
+                "state": partner.state,
+                "pincode": partner.pincode,
+                "partnership_status": partner.partnership_status,
+                "subsidy_percentage": partner.subsidy_percentage,
+                "max_employee_benefit": partner.max_employee_benefit,
+                "created_at": partner.created_at,
+                "total_employees_enrolled": count,
+                "company_domain": partner.contact_email.split('@')[-1] if partner.contact_email else ""
+            }
+            partners.append(p_dict)
+        return partners

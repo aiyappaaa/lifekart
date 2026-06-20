@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class LegacyNomineeCreate(BaseModel):
@@ -43,6 +43,13 @@ class LegacyNomineeResponse(BaseModel):
     death_certificate_url: Optional[str]
     created_at: datetime
 
+    @field_validator("nominee_aadhaar")
+    @classmethod
+    def mask_aadhaar(cls, v: str | None) -> str | None:
+        if v and len(v) == 12:
+            return "X" * 8 + v[-4:]
+        return v
+
     model_config = {"from_attributes": True}
 
 
@@ -66,5 +73,6 @@ class LegacyActivationResponse(BaseModel):
     status: str
     activation_notes: Optional[str]
     created_at: datetime
+    nominee: Optional[LegacyNomineeResponse] = None
 
     model_config = {"from_attributes": True}

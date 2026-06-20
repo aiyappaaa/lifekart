@@ -143,3 +143,40 @@ def archive_old_deliveries():
             await engine.dispose()
 
     return asyncio.run(_run())
+
+@celery_app.task(name="app.tasks.delivery_tasks.process_bulk_deliveries")
+def process_bulk_deliveries_task():
+    import asyncio
+
+    async def _run():
+        await engine.dispose()
+        try:
+            from app.modules.payments.service import PaymentsService
+            async with AsyncSessionLocal() as db:
+                # 1. Update all pending/partially_filled to delivered
+                result = await db.execute(
+                    select(DeliveryEvent).where(
+                        DeliveryEvent.status.in_(["pending", "partially_filled"])
+                    )
+                )
+                events = result.scalars().all()
+                count = 0
+                for event in events:
+                    event.status = "delivered"
+                    event.actual_delivery_date = datetime.utcnow()
+                    count += 1
+                await db.commit()
+
+                # 2. Trigger invoice generation synchronously for current month
+                payment_service = PaymentsService(db)
+                billing_result = await payment_service.generate_invoices_for_all(force_current_month=True)
+
+                return {
+                    "status": "success",
+                    "deliveries_marked_delivered": count,
+                    "billing_result": billing_result
+                }
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(_run())

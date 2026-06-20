@@ -3,6 +3,7 @@ import './globals.css'
 import { AuthProvider } from '@/lib/auth'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
+import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
   title: 'LifeKart — Lifetime Wholesale Buying',
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Navbar />
           <main className="flex-1">{children}</main>
           <Footer />
+          <Toaster richColors position="top-right" />
         </AuthProvider>
       </body>
     </html>

@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.modules.users.dependencies import require_role
 from app.modules.users.models import User, UserRole
-from app.modules.analytics.schemas import PlatformKpiResponse, LandingPageStatsResponse
+from app.modules.analytics.schemas import PlatformKpiResponse, LandingPageStatsResponse, AdminMetricsResponse
 from app.modules.analytics.service import AnalyticsService
 from app.core.config import settings
 
@@ -37,3 +37,12 @@ async def landing_page_stats(
 ):
     service = AnalyticsService(db)
     return await service.get_landing_page_stats()
+
+
+@router.get("/admin/metrics", response_model=AdminMetricsResponse)
+async def admin_metrics(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.SUPERADMIN)),
+):
+    service = AnalyticsService(db)
+    return await service.get_realtime_admin_metrics()

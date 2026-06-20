@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.modules.catalog.models import (
     Manufacturer,
@@ -208,7 +209,7 @@ class CatalogService:
 
     async def get_manufacturers(self, skip: int = 0, limit: int = 50) -> list[Manufacturer]:
         result = await self.db.execute(
-            select(Manufacturer).where(Manufacturer.is_verified == True).offset(skip).limit(limit)
+            select(Manufacturer).offset(skip).limit(limit)
         )
         return list(result.scalars().all())
 
@@ -245,6 +246,13 @@ class CatalogService:
         await self.db.refresh(manufacturer)
         return manufacturer
 
+    async def update_manufacturer_status(self, manufacturer_id: uuid.UUID, is_verified: bool) -> Manufacturer:
+        manufacturer = await self.get_manufacturer_by_id(manufacturer_id)
+        manufacturer.is_verified = is_verified
+        await self.db.commit()
+        await self.db.refresh(manufacturer)
+        return manufacturer
+
     # ── Products ──
 
     async def create_product(self, manufacturer_id: uuid.UUID, data: ProductCreate) -> Product:
@@ -267,6 +275,7 @@ class CatalogService:
             unit_price_retail=data.unit_price_retail,
             min_order_quantity=data.min_order_quantity,
             max_order_quantity=data.max_order_quantity,
+            stock_quantity=data.stock_quantity,
         )
         self.db.add(product)
         await self.db.flush()
@@ -282,7 +291,7 @@ class CatalogService:
         skip: int = 0,
         limit: int = 50,
     ) -> list[Product]:
-        query = select(Product).where(Product.is_active == True)
+        query = select(Product).options(joinedload(Product.manufacturer)).where(Product.is_active == True)
 
         if category_id:
             query = query.where(Product.category_id == category_id)
@@ -325,6 +334,16 @@ class CatalogService:
     async def add_substitute(self, data: SubstitutionCreate) -> ProductSubstitute:
         if data.product_id == data.substitute_product_id:
             raise ValueError("A product cannot be its own substitute")
+
+        # Enforce unique priority rank per product
+        existing_rank = await self.db.execute(
+            select(ProductSubstitute).where(
+                ProductSubstitute.product_id == data.product_id,
+                ProductSubstitute.priority_rank == data.priority_rank,
+            )
+        )
+        if existing_rank.scalars().first():
+            raise ValueError(f"Priority rank {data.priority_rank} is already taken by another substitute for this product")
 
         await self.get_product_by_id(data.product_id)
         await self.get_product_by_id(data.substitute_product_id)

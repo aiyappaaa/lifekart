@@ -3,7 +3,9 @@
 import { useAuth } from '@/lib/auth'
 import { apiClient } from '@/lib/api'
 import { useEffect, useState } from 'react'
-import { Users, TrendingUp, Building2 } from 'lucide-react'
+import { Users, TrendingUp, Building2, Save, FileText, ArrowRight, AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
+import { toast } from 'sonner'
 
 export default function CorporateDashboard() {
   const { user } = useAuth()
@@ -43,25 +45,63 @@ export default function CorporateDashboard() {
           {partner?.company_name || 'Corporate Dashboard'}
         </h1>
         <p className="text-gray-500 mt-1">
-          {partner?.partnership_status === 'active' ? 'Active partnership' : 'Pending approval'}
+          Manage your employee subscriptions and payroll deductions
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl p-6 shadow-card">
-          <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Employees</span>
-          <div className="text-3xl font-display font-extrabold mt-2">{employees.length}</div>
-        </div>
-        <div className="bg-white rounded-2xl p-6 shadow-card">
-          <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Status</span>
-          <div className={`text-xl font-display font-bold mt-2 ${partner?.partnership_status === 'active' ? 'text-green-600' : 'text-amber-600'}`}>
-            {partner?.partnership_status || 'Unknown'}
+      {partner?.partnership_status === 'pending' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex items-start gap-4">
+          <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0" />
+          <div>
+            <h3 className="font-bold text-amber-900 uppercase tracking-tight text-sm">Account Pending Approval</h3>
+            <p className="text-amber-800 text-sm mt-1">Your corporate account is currently under review by LifeKart administrators. You can configure your settings and enroll employees, but subsidies will not be activated until approved.</p>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-6 shadow-card">
-          <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Industry</span>
-          <div className="text-xl font-display font-bold mt-2">{partner?.industry || '—'}</div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-6 shadow-card flex flex-col justify-between">
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Employees Added</p>
+          <p className="text-3xl font-display font-extrabold text-gray-900">{employees.length}</p>
         </div>
+        <div className="bg-white rounded-2xl p-6 shadow-card flex flex-col justify-between">
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Active Enrollments</p>
+          <p className="text-3xl font-display font-extrabold text-gray-900">{employees.filter(e => e.is_active).length}</p>
+        </div>
+        <div className="bg-white rounded-2xl p-6 shadow-card flex flex-col justify-between">
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Account Status</p>
+          <p className={`text-xl font-bold uppercase tracking-tight ${partner?.partnership_status === 'active' ? 'text-green-500' : 'text-accent'}`}>
+            {partner?.partnership_status === 'pending' ? 'Pending Approval' : (partner?.partnership_status || 'Unknown')}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Link href="/dashboard/corporate/employees" className="bg-white rounded-2xl p-6 shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all group flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold uppercase tracking-tight text-lg text-gray-900">Manage Employees</h3>
+              <p className="text-sm text-gray-500">{employees.length} active enrollments</p>
+            </div>
+          </div>
+          <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-accent transition-colors" />
+        </Link>
+        
+        <Link href="/dashboard/corporate/payroll" className="bg-white rounded-2xl p-6 shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all group flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors">
+              <FileText className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold uppercase tracking-tight text-lg text-gray-900">Payroll Hub</h3>
+              <p className="text-sm text-gray-500">Generate deduction files</p>
+            </div>
+          </div>
+          <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-accent transition-colors" />
+        </Link>
       </div>
     </div>
   )

@@ -17,10 +17,10 @@ class SchedulingService:
         if not household:
             return []
             
-        res = await self.db.execute(
+        result = await self.db.execute(
             select(DeliveryEvent)
             .options(joinedload(DeliveryEvent.product))
             .where(DeliveryEvent.household_id == household.id)
             .order_by(DeliveryEvent.scheduled_date.desc())
         )
-        return list(res.scalars().all())
+        return list(result.scalars().all())

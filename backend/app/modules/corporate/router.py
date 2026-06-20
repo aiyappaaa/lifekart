@@ -9,8 +9,10 @@ from app.modules.users.models import User, UserRole
 from app.modules.corporate.schemas import (
     CorporatePartnerCreate,
     CorporatePartnerResponse,
+    CorporatePartnerAdminResponse,
     CorporatePartnerUpdate,
     EmployeeEnrollCreate,
+    EmployeeEnrollUpdate,
     EmployeeEnrollmentResponse,
 )
 from app.modules.corporate.service import CorporateService
@@ -18,7 +20,7 @@ from app.modules.corporate.service import CorporateService
 router = APIRouter(prefix="/corporate")
 
 
-@router.get("/partners", response_model=list[CorporatePartnerResponse])
+@router.get("/partners", response_model=list[CorporatePartnerAdminResponse])
 async def list_all_partners(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.SUPERADMIN)),
@@ -36,6 +38,19 @@ async def approve_partner(
     service = CorporateService(db)
     try:
         return await service.approve_partner(partner_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/partners/{partner_id}/suspend", response_model=CorporatePartnerResponse)
+async def suspend_partner(
+    partner_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.SUPERADMIN)),
+):
+    service = CorporateService(db)
+    try:
+        return await service.suspend_partner(partner_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -97,7 +112,24 @@ async def list_employees(
     current_user: User = Depends(require_role(UserRole.CORPORATE_ADMIN)),
 ):
     service = CorporateService(db)
-    return await service.get_employees(current_user.id)
+    try:
+        return await service.get_employees(current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.patch("/employees/{enrollment_id}", response_model=EmployeeEnrollmentResponse)
+async def update_employee(
+    enrollment_id: uuid.UUID,
+    data: EmployeeEnrollUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.CORPORATE_ADMIN)),
+):
+    service = CorporateService(db)
+    try:
+        return await service.update_employee(current_user.id, enrollment_id, data)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/employees/{enrollment_id}", status_code=status.HTTP_204_NO_CONTENT)

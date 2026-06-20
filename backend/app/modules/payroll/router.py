@@ -37,7 +37,10 @@ async def list_deductions(
     current_user: User = Depends(require_role(UserRole.CORPORATE_ADMIN)),
 ):
     service = PayrollService(db)
-    return await service.get_deductions(current_user.id, enrollment_id=enrollment_id)
+    try:
+        return await service.get_deductions(current_user.id, enrollment_id=enrollment_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/deductions/{deduction_id}/process", response_model=PayrollDeductionResponse)

@@ -211,11 +211,16 @@ class PaymentsService:
             raise ValueError("Invoice not found")
         return invoice
 
-    async def generate_invoices_for_all(self) -> dict:
+    async def generate_invoices_for_all(self, force_current_month: bool = False) -> dict:
         today = date.today()
-        first_of_month = today.replace(day=1)
-        last_month_end = first_of_month - timedelta(days=1)
-        last_month_start = last_month_end.replace(day=1)
+        
+        if force_current_month:
+            start_date = today.replace(day=1)
+            end_date = today
+        else:
+            first_of_month = today.replace(day=1)
+            end_date = first_of_month - timedelta(days=1)
+            start_date = end_date.replace(day=1)
 
         result = await self.db.execute(
             select(Household).where(Household.user_id.isnot(None))
@@ -227,8 +232,8 @@ class PaymentsService:
             deliveries = await self.db.execute(
                 select(DeliveryEvent).where(
                     DeliveryEvent.household_id == household.id,
-                    DeliveryEvent.scheduled_date >= last_month_start,
-                    DeliveryEvent.scheduled_date <= last_month_end,
+                    DeliveryEvent.scheduled_date >= start_date,
+                    DeliveryEvent.scheduled_date <= end_date,
                 )
             )
             delivery_list = list(deliveries.scalars().all())
@@ -240,8 +245,8 @@ class PaymentsService:
             existing = await self.db.execute(
                 select(Invoice).where(
                     Invoice.household_id == household.id,
-                    Invoice.billing_period_start == last_month_start,
-                    Invoice.billing_period_end == last_month_end
+                    Invoice.billing_period_start == start_date,
+                    Invoice.billing_period_end == end_date
                 )
             )
             if existing.scalar_one_or_none():
@@ -260,14 +265,14 @@ class PaymentsService:
                 currency="INR",
                 status="draft",
                 issued_at=datetime.now(timezone.utc),
-                billing_period_start=last_month_start,
-                billing_period_end=last_month_end,
+                billing_period_start=start_date,
+                billing_period_end=end_date,
             )
             self.db.add(invoice)
             generated += 1
 
         await self.db.commit()
-        return {"invoices_generated": generated, "period": f"{last_month_start} → {last_month_end}"}
+        return {"invoices_generated": generated, "period": f"{start_date} → {end_date}"}
 
     # ── Webhook ──
 

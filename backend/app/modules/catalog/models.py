@@ -88,6 +88,10 @@ class Product(Base):
     )
     lifetime_subscriptions = relationship("LifetimeSubscription", back_populates="product")
 
+    @property
+    def manufacturer_company(self) -> str | None:
+        return self.manufacturer.company_name if self.manufacturer else None
+
 
 class ProductSubstitute(Base):
     __tablename__ = "product_substitutes"

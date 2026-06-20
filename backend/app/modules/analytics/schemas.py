@@ -29,3 +29,10 @@ class LandingPageStatsResponse(BaseModel):
     total_active_households: int
     total_lifetime_contracts: int
     total_corporate_partners: int
+
+class AdminMetricsResponse(BaseModel):
+    total_active_households: int
+    total_corporate_partners: int
+    total_lifetime_contracts: int
+    avg_monthly_saved: Decimal
+    unverified_manufacturers: int
