@@ -25,7 +25,10 @@ const ROLE_NAV: Record<string, NavItem[]> = {
     { href: '/dashboard/customer/invoices', label: 'Invoices', icon: <FileText className="w-5 h-5" /> },
     { href: '/dashboard/customer/household', label: 'Household', icon: <Users className="w-5 h-5" /> },
     { href: '/dashboard/customer/agreements', label: 'Agreements', icon: <Handshake className="w-5 h-5" /> },
+    { href: '/dashboard/customer/gifting', label: 'Gifting', icon: <Gift className="w-5 h-5" /> },
+    { href: '/dashboard/customer/received-gifts', label: 'Received Gifts', icon: <Package className="w-5 h-5" /> },
     { href: '/dashboard/customer/community', label: 'Community', icon: <Building2 className="w-5 h-5" /> },
+    { href: '/dashboard/customer/legacy', label: 'Legacy', icon: <ShieldCheck className="w-5 h-5" /> },
   ],
   manufacturer: [
     { href: '/dashboard/manufacturer', label: 'Overview', icon: <LayoutDashboard className="w-5 h-5" /> },

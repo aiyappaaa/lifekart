@@ -25,7 +25,7 @@ async def platform_kpi_savings(
     current_user: User = Depends(require_role(UserRole.SUPERADMIN)),
 ):
     service = AnalyticsService(db)
-    result = await service.get_latest_platform_kpi("avg_monthly_household_savings")
+    result = await service.get_latest_platform_kpi()
     if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No KPI snapshot available yet")
     return result
@@ -46,3 +46,12 @@ async def admin_metrics(
 ):
     service = AnalyticsService(db)
     return await service.get_realtime_admin_metrics()
+
+
+@router.get("/admin/trend")
+async def admin_trend(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.SUPERADMIN)),
+):
+    service = AnalyticsService(db)
+    return await service.get_historical_kpi_trend(limit=6)

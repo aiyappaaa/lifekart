@@ -136,6 +136,8 @@ class ProductResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     manufacturer_company: str | None = None
+    discounted_price: Decimal | None = None
+    discount_tier_applied: str | None = None
 
     model_config = {"from_attributes": True}
 

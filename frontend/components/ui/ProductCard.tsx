@@ -16,6 +16,8 @@ interface Product {
   unit_price_wholesale: number
   unit_price_retail: number
   stock_quantity: number
+  discounted_price?: number
+  discount_tier_applied?: string
 }
 
 interface Props {
@@ -26,9 +28,12 @@ export default function ProductCard({ product }: Props) {
   const [showModal, setShowModal] = useState(false)
   const router = useRouter()
 
+  const hasCommunityDiscount = !!product.discounted_price
+  const effectivePrice = product.discounted_price || product.unit_price_wholesale
+
   const savings = product.unit_price_retail > 0
     ? Math.round(
-        ((product.unit_price_retail - product.unit_price_wholesale) /
+        ((product.unit_price_retail - effectivePrice) /
           product.unit_price_retail) *
           100
       )
@@ -60,11 +65,20 @@ export default function ProductCard({ product }: Props) {
             </div>
           )}
 
-          {savings > 0 && (
+          {savings > 0 && !hasCommunityDiscount && (
             <div className="absolute top-3 left-3">
               <span className="inline-block bg-black text-white rounded-md px-3 py-1
                                text-xs font-bold uppercase tracking-wider shadow-badge">
                 Save {savings}%
+              </span>
+            </div>
+          )}
+          
+          {hasCommunityDiscount && (
+            <div className="absolute top-3 left-3">
+              <span className="inline-block bg-accent text-white rounded-md px-3 py-1
+                               text-xs font-bold uppercase tracking-wider shadow-badge animate-pulse">
+                {product.discount_tier_applied}
               </span>
             </div>
           )}
@@ -83,16 +97,28 @@ export default function ProductCard({ product }: Props) {
 
           <div className="flex items-end justify-between pt-2">
             <div>
-              <div className="text-2xl font-display font-extrabold">
-                ₹{Number(product.unit_price_wholesale).toLocaleString('en-IN')}
+              {hasCommunityDiscount && (
+                <div className="text-xs font-semibold text-accent mb-0.5 animate-pulse">
+                  Community Wholesale
+                </div>
+              )}
+              <div className="text-2xl font-display font-extrabold flex items-center gap-2">
+                ₹{Number(effectivePrice).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                {hasCommunityDiscount && (
+                   <span className="text-sm text-gray-400 line-through font-normal">
+                     ₹{Number(product.unit_price_wholesale).toLocaleString('en-IN')}
+                   </span>
+                )}
               </div>
-              {product.unit_price_retail > product.unit_price_wholesale && (
+              {product.unit_price_retail > effectivePrice && (
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs text-gray-400 line-through">
-                    ₹{Number(product.unit_price_retail).toLocaleString('en-IN')}
-                  </span>
+                  {!hasCommunityDiscount && (
+                    <span className="text-xs text-gray-400 line-through">
+                      ₹{Number(product.unit_price_retail).toLocaleString('en-IN')}
+                    </span>
+                  )}
                   <span className="text-xs font-semibold text-green-600">
-                    {savings}% off
+                    {savings}% off retail
                   </span>
                 </div>
               )}

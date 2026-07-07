@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,7 +10,9 @@ from app.modules.legacy.schemas import (
     LegacyNomineeCreate,
     LegacyNomineeUpdate,
     DeathVerificationRequest,
+    PublicClaimRequest,
 )
+from app.core.security import encrypt_data, decrypt_data, hash_password
 from app.modules.calculator.models import LifetimeSubscription
 from app.modules.profiling.models import Household
 from app.modules.users.models import User
@@ -30,6 +32,19 @@ class LegacyService:
     async def add_nominee(self, user_id: uuid.UUID, data: LegacyNomineeCreate) -> LegacyNominee:
         household = await self._get_household(user_id)
 
+        # Validation: Check for duplicates globally across the entire platform
+        result = await self.db.execute(select(LegacyNominee))
+        existing_nominees = result.scalars().all()
+        for en in existing_nominees:
+            if en.nominee_phone == data.nominee_phone:
+                raise ValueError("A nominee with this mobile number already exists.")
+            if data.nominee_email and en.nominee_email == data.nominee_email:
+                raise ValueError("A nominee with this email already exists.")
+            if data.nominee_aadhaar and en.nominee_aadhaar:
+                decrypted = decrypt_data(en.nominee_aadhaar)
+                if decrypted == data.nominee_aadhaar:
+                    raise ValueError("A nominee with this Aadhaar number already exists.")
+
         if data.is_primary:
             await self._unset_primary(household.id)
 
@@ -39,7 +54,7 @@ class LegacyService:
             nominee_relationship=data.nominee_relationship,
             nominee_phone=data.nominee_phone,
             nominee_email=data.nominee_email,
-            nominee_aadhaar=data.nominee_aadhaar,
+            nominee_aadhaar=encrypt_data(data.nominee_aadhaar) if data.nominee_aadhaar else None,
             is_primary=data.is_primary,
         )
         self.db.add(nominee)
@@ -69,10 +84,27 @@ class LegacyService:
         if not nominee:
             raise ValueError("Nominee not found")
 
+        # Validation: Check for duplicates globally across the entire platform
+        result_all = await self.db.execute(select(LegacyNominee))
+        existing_nominees = result_all.scalars().all()
+        for en in existing_nominees:
+            if en.id == nominee_id:
+                continue
+            if data.nominee_phone and en.nominee_phone == data.nominee_phone:
+                raise ValueError("A nominee with this mobile number already exists.")
+            if data.nominee_email and en.nominee_email == data.nominee_email:
+                raise ValueError("A nominee with this email already exists.")
+            if data.nominee_aadhaar and en.nominee_aadhaar:
+                decrypted = decrypt_data(en.nominee_aadhaar)
+                if decrypted == data.nominee_aadhaar:
+                    raise ValueError("A nominee with this Aadhaar number already exists.")
+
         if data.is_primary and not nominee.is_primary:
             await self._unset_primary(household.id)
 
         for field, value in data.model_dump(exclude_unset=True).items():
+            if field == "nominee_aadhaar" and value is not None:
+                value = encrypt_data(value)
             setattr(nominee, field, value)
 
         await self.db.commit()
@@ -151,18 +183,75 @@ class LegacyService:
         await self.db.refresh(activation)
         return activation
 
-    async def get_pending_activations(self) -> list[LegacyActivation]:
+    async def verify_public_claim(self, data: PublicClaimRequest) -> LegacyActivation:
+        result = await self.db.execute(select(User).where(User.email == data.deceased_email))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise ValueError("No account found with this email.")
+        
+        household = await self._get_household(user.id)
+        
         result = await self.db.execute(
-            select(LegacyActivation)
-            .options(joinedload(LegacyActivation.successor_nominee))
-            .where(LegacyActivation.status == "pending_verification")
-            .order_by(LegacyActivation.created_at.desc())
+            select(LegacyNominee).where(
+                LegacyNominee.household_id == household.id,
+                LegacyNominee.nominee_email == data.nominee_email
+            )
         )
+        nominee = result.scalar_one_or_none()
+        if not nominee:
+            raise ValueError("No matching nominee record found for this email.")
+            
+        existing = await self.db.execute(
+            select(LegacyActivation).where(
+                LegacyActivation.household_id == household.id,
+                LegacyActivation.status.in_(["pending_verification", "verified", "in_progress"]),
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise ValueError("An active legacy activation already exists for this household")
+
+        active_subs_result = await self.db.execute(
+            select(func.count(LifetimeSubscription.id)).where(
+                LifetimeSubscription.household_id == household.id,
+                LifetimeSubscription.status == "active",
+            )
+        )
+        sub_count = active_subs_result.scalar_one()
+
+        activation = LegacyActivation(
+            household_id=household.id,
+            original_user_id=user.id,
+            successor_nominee_id=nominee.id,
+            active_subscriptions_count=sub_count,
+            status="pending_verification",
+            death_certificate_url=data.proof_document_url,
+            activation_notes=data.notes,
+        )
+        self.db.add(activation)
+
+        await self.db.commit()
+        await self.db.refresh(activation)
+        return activation
+
+    async def get_pending_activations(self, status_filter: str = "pending_verification") -> list[LegacyActivation]:
+        query = select(LegacyActivation).options(
+            joinedload(LegacyActivation.successor_nominee),
+            joinedload(LegacyActivation.original_user)
+        )
+        if status_filter != "all":
+            query = query.where(LegacyActivation.status == status_filter)
+        
+        result = await self.db.execute(query.order_by(LegacyActivation.created_at.desc()))
         return list(result.scalars().all())
 
     async def approve_activation(self, activation_id: uuid.UUID) -> LegacyActivation:
         result = await self.db.execute(
-            select(LegacyActivation).where(LegacyActivation.id == activation_id)
+            select(LegacyActivation)
+            .options(
+                joinedload(LegacyActivation.successor_nominee),
+                joinedload(LegacyActivation.original_user)
+            )
+            .where(LegacyActivation.id == activation_id)
         )
         activation = result.scalar_one_or_none()
         if not activation:
@@ -193,7 +282,37 @@ class LegacyService:
         user = result.scalar_one()
         user.is_active = False
 
+        # --- AUTO-PROVISION NOMINEE ACCOUNT ---
+        # Check if the nominee already has an account by email
+        result = await self.db.execute(
+            select(User).where(User.email == nominee.nominee_email)
+        )
+        nominee_user = result.scalar_one_or_none()
+
+        if not nominee_user:
+            # Check if phone number is already taken by a different user
+            if nominee.nominee_phone:
+                result_phone = await self.db.execute(
+                    select(User).where(User.phone == nominee.nominee_phone)
+                )
+                if result_phone.scalar_one_or_none():
+                    raise ValueError(f"Cannot auto-provision Nominee: The phone number {nominee.nominee_phone} is already linked to another account.")
+            
+            # Create a brand new user account for the nominee
+            nominee_user = User(
+                email=nominee.nominee_email,
+                phone=nominee.nominee_phone,
+                full_name=nominee.nominee_name,
+                role="customer",
+                hashed_password=hash_password("welcome@123"),
+                is_active=True,
+            )
+            self.db.add(nominee_user)
+            await self.db.flush()
+        # --------------------------------------
+
         new_household = Household(
+            user_id=nominee_user.id,
             address_line1=original_household.address_line1,
             address_line2=original_household.address_line2,
             city=original_household.city,
@@ -254,6 +373,63 @@ class LegacyService:
         await self.db.commit()
         await self.db.refresh(activation)
         return activation
+
+    async def reject_activation(self, activation_id: uuid.UUID, reason: str) -> LegacyActivation:
+        result = await self.db.execute(
+            select(LegacyActivation)
+            .options(
+                joinedload(LegacyActivation.successor_nominee),
+                joinedload(LegacyActivation.original_user)
+            )
+            .where(LegacyActivation.id == activation_id)
+        )
+        activation = result.scalar_one_or_none()
+        if not activation:
+            raise ValueError("Activation not found")
+
+        if activation.status != "pending_verification":
+            raise ValueError(f"Activation is in status '{activation.status}', expected 'pending_verification'")
+
+        activation.status = "rejected"
+        activation.rejection_reason = reason
+        
+        await self.db.commit()
+        await self.db.refresh(activation)
+        return activation
+
+    async def get_pending_nominees(self) -> list[LegacyNominee]:
+        result = await self.db.execute(
+            select(LegacyNominee)
+            .where(LegacyNominee.is_verified == False)
+            .order_by(LegacyNominee.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def verify_nominee(self, nominee_id: uuid.UUID) -> LegacyNominee:
+        result = await self.db.execute(
+            select(LegacyNominee).where(LegacyNominee.id == nominee_id)
+        )
+        nominee = result.scalar_one_or_none()
+        if not nominee:
+            raise ValueError("Nominee not found")
+            
+        # Validation: Check for duplicates globally across the entire platform before verifying
+        result_all = await self.db.execute(select(LegacyNominee).where(LegacyNominee.id != nominee_id))
+        existing_nominees = result_all.scalars().all()
+        for en in existing_nominees:
+            if nominee.nominee_phone and en.nominee_phone == nominee.nominee_phone:
+                raise ValueError("Another nominee with this mobile number already exists.")
+            if nominee.nominee_email and en.nominee_email == nominee.nominee_email:
+                raise ValueError("Another nominee with this email already exists.")
+            if nominee.nominee_aadhaar and en.nominee_aadhaar:
+                if decrypt_data(en.nominee_aadhaar) == decrypt_data(nominee.nominee_aadhaar):
+                    raise ValueError("Another nominee with this Aadhaar number already exists.")
+        
+        nominee.is_verified = True
+        nominee.verification_status = "verified"
+        await self.db.commit()
+        await self.db.refresh(nominee)
+        return nominee
 
     async def _unset_primary(self, household_id: uuid.UUID) -> None:
         result = await self.db.execute(

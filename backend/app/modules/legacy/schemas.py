@@ -40,14 +40,17 @@ class LegacyNomineeResponse(BaseModel):
     is_primary: bool
     is_verified: bool
     verification_status: str
-    death_certificate_url: Optional[str]
     created_at: datetime
 
-    @field_validator("nominee_aadhaar")
+    @field_validator("nominee_aadhaar", mode="before")
     @classmethod
     def mask_aadhaar(cls, v: str | None) -> str | None:
-        if v and len(v) == 12:
-            return "X" * 8 + v[-4:]
+        if v:
+            from app.core.security import decrypt_data
+            decrypted = decrypt_data(v)
+            if decrypted and len(decrypted) == 12:
+                return "X" * 8 + decrypted[-4:]
+            return decrypted
         return v
 
     model_config = {"from_attributes": True}
@@ -55,6 +58,14 @@ class LegacyNomineeResponse(BaseModel):
 
 class DeathVerificationRequest(BaseModel):
     nominee_id: uuid.UUID
+    death_proof_type: str = Field(pattern=r"^(death_certificate|court_order|hospital_record|govt_notification)$")
+    proof_document_url: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class PublicClaimRequest(BaseModel):
+    deceased_email: str
+    nominee_email: str
     death_proof_type: str = Field(pattern=r"^(death_certificate|court_order|hospital_record|govt_notification)$")
     proof_document_url: Optional[str] = Field(None, max_length=500)
     notes: Optional[str] = Field(None, max_length=1000)
@@ -71,8 +82,15 @@ class LegacyActivationResponse(BaseModel):
     active_subscriptions_count: int
     transferred_count: int
     status: str
+    death_certificate_url: Optional[str] = None
     activation_notes: Optional[str]
+    rejection_reason: Optional[str] = None
+    deceased_email: Optional[str] = None
     created_at: datetime
-    nominee: Optional[LegacyNomineeResponse] = None
+    successor_nominee: Optional[LegacyNomineeResponse] = None
 
     model_config = {"from_attributes": True}
+
+
+class RejectActivationRequest(BaseModel):
+    rejection_reason: str = Field(min_length=10, max_length=1000)

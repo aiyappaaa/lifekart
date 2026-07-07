@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.modules.gifting.models import GiftOrder, GiftOrderItem
-from app.modules.gifting.schemas import GiftOrderCreate, GiftOrderItemCreate
+from app.modules.gifting.schemas import GiftOrderCreate, GiftOrderItemCreate, GiftClaimCreate
 from app.modules.catalog.models import Product
 from app.modules.calculator.models import LifetimeSubscription
 from app.modules.profiling.models import Household
@@ -61,7 +61,7 @@ class GiftingService:
             payment_status="pending",
         )
         self.db.add(gift)
-        await self.db.flush()
+        await self.db.commit()
 
         for item_data, locked_price in items_data:
             item = GiftOrderItem(
@@ -75,7 +75,7 @@ class GiftingService:
             )
             self.db.add(item)
 
-        await self.db.flush()
+        await self.db.commit()
         return await self._get_with_items(gift.id)
 
     async def get_my_gift_orders(self, user_id: uuid.UUID) -> list[GiftOrder]:
@@ -94,6 +94,75 @@ class GiftingService:
         )
         return list(result.scalars().all())
 
+    async def list_received_gifts(self, user_id: uuid.UUID) -> list[GiftOrder]:
+        household = await self.db.scalar(select(Household).where(Household.user_id == user_id))
+        if not household:
+            return []
+            
+        result = await self.db.execute(
+            select(GiftOrder)
+            .where(GiftOrder.recipient_household_id == household.id)
+            .options(selectinload(GiftOrder.items).joinedload(GiftOrderItem.product))
+            .order_by(GiftOrder.created_at.desc())
+        )
+        return result.scalars().all()
+
+    async def get_received_subscriptions(self, user_id: uuid.UUID) -> list:
+        household = await self.db.scalar(select(Household).where(Household.user_id == user_id))
+        if not household:
+            return []
+            
+        gifts = await self.db.execute(
+            select(GiftOrder).where(GiftOrder.recipient_household_id == household.id)
+        )
+        
+        gift_ids = [g.id for g in gifts.scalars()]
+        if not gift_ids:
+            return []
+            
+        subs = await self.db.execute(
+            select(LifetimeSubscription)
+            .options(selectinload(LifetimeSubscription.product))
+            .where(
+                LifetimeSubscription.source == "gift",
+                LifetimeSubscription.source_id.in_(gift_ids)
+            )
+        )
+        return list(subs.scalars().all())
+
+    async def get_received_deliveries(self, user_id: uuid.UUID) -> list:
+        household = await self.db.scalar(select(Household).where(Household.user_id == user_id))
+        if not household:
+            return []
+            
+        gifts = await self.db.execute(
+            select(GiftOrder).where(GiftOrder.recipient_household_id == household.id)
+        )
+        
+        gift_ids = [g.id for g in gifts.scalars()]
+        if not gift_ids:
+            return []
+            
+        subs = await self.db.execute(
+            select(LifetimeSubscription.id)
+            .where(
+                LifetimeSubscription.source == "gift",
+                LifetimeSubscription.source_id.in_(gift_ids)
+            )
+        )
+        sub_ids = [s_id for s_id in subs.scalars()]
+        if not sub_ids:
+            return []
+            
+        from app.modules.scheduling.models import DeliveryEvent
+        deliveries = await self.db.execute(
+            select(DeliveryEvent)
+            .options(selectinload(DeliveryEvent.product))
+            .where(DeliveryEvent.subscription_id.in_(sub_ids))
+            .order_by(DeliveryEvent.scheduled_date.desc())
+        )
+        return list(deliveries.scalars().all())
+
     async def get_gift_order(self, gift_order_id: uuid.UUID) -> GiftOrder:
         result = await self.db.execute(
             select(GiftOrder)
@@ -104,6 +173,111 @@ class GiftingService:
         if not gift:
             raise ValueError("Gift order not found")
         return gift
+
+    async def get_public_gift_info(self, gift_order_id: uuid.UUID) -> dict:
+        result = await self.db.execute(
+            select(GiftOrder)
+            .where(GiftOrder.id == gift_order_id)
+            .options(selectinload(GiftOrder.items).joinedload(GiftOrderItem.product))
+        )
+        gift = result.scalar_one_or_none()
+        if not gift:
+            raise ValueError("Gift order not found")
+        
+        items = []
+        for item in gift.items:
+            items.append({
+                "product_name": item.product.name,
+                "frequency_days": item.frequency_days,
+                "quantity_per_delivery": item.quantity_per_delivery
+            })
+            
+        return {
+            "id": gift.id,
+            "beneficiary_name": gift.beneficiary_name,
+            "start_age": gift.start_age,
+            "end_age": gift.end_age,
+            "items": items,
+            "claimed": gift.claimed_at is not None,
+            "status": gift.status
+        }
+
+    async def claim_gift(self, gift_order_id: uuid.UUID, data: GiftClaimCreate, user_id: uuid.UUID) -> dict:
+        from datetime import datetime
+        gift = await self.get_gift_order(gift_order_id)
+        if gift.payment_status != "paid":
+            raise ValueError("Gift has not been activated by the sender yet.")
+        if gift.claimed_at:
+            raise ValueError("Gift has already been claimed.")
+            
+        household = await self.db.scalar(select(Household).where(Household.user_id == user_id))
+        
+        from app.modules.users.models import User
+        from app.modules.profiling.models import Member
+        from app.modules.health.models import HealthProfile
+        import datetime
+        user = await self.db.scalar(select(User).where(User.id == user_id))
+        
+        if not household:
+            household = Household(
+                user_id=user_id,
+                address_line1=data.address.line1,
+                address_line2=data.address.line2,
+                city=data.address.city,
+                state=data.address.state,
+                pincode=data.address.pincode,
+                prefer_organic=False
+            )
+            self.db.add(household)
+            await self.db.flush()
+            
+        # Ensure self member exists
+        self_member = await self.db.scalar(select(Member).where(Member.household_id == household.id, Member.family_relation == "self"))
+        if not self_member:
+            self_name = user.full_name if user else "Parent/Guardian"
+            if user and user.full_name.lower().strip() == gift.beneficiary_name.lower().strip():
+                self_name = gift.beneficiary_name
+            
+            self_member = Member(
+                household_id=household.id,
+                full_name=self_name,
+                family_relation="self",
+                date_of_birth=gift.beneficiary_dob if self_name == gift.beneficiary_name else datetime.date(1990, 1, 1)
+            )
+            self.db.add(self_member)
+            await self.db.flush()
+            self.db.add(HealthProfile(member_id=self_member.id, existing_conditions=[], allergies=[]))
+            
+        # Ensure beneficiary member exists (if it's not the user themselves)
+        if not (user and user.full_name.lower().strip() == gift.beneficiary_name.lower().strip()):
+            beneficiary_member = await self.db.scalar(select(Member).where(Member.household_id == household.id, Member.full_name.ilike(gift.beneficiary_name)))
+            if not beneficiary_member:
+                beneficiary_member = Member(
+                    household_id=household.id,
+                    full_name=gift.beneficiary_name,
+                    family_relation="child",
+                    date_of_birth=gift.beneficiary_dob
+                )
+                self.db.add(beneficiary_member)
+                await self.db.flush()
+                self.db.add(HealthProfile(member_id=beneficiary_member.id, existing_conditions=[], allergies=[]))
+            
+            
+        gift.recipient_household_id = household.id
+        gift.recipient_address = data.address.model_dump()
+        gift.claimed_at = datetime.utcnow()
+        
+        result = await self.db.execute(
+            select(LifetimeSubscription).where(
+                LifetimeSubscription.source == "gift",
+                LifetimeSubscription.source_id == gift.id,
+            )
+        )
+        for sub in result.scalars().all():
+            sub.delivery_address_override = gift.recipient_address
+            
+        await self.db.commit()
+        return {"status": "success", "claimed_at": str(gift.claimed_at)}
 
     async def _verify_ownership(self, user_id: uuid.UUID, gift: GiftOrder) -> None:
         result = await self.db.execute(
@@ -123,6 +297,7 @@ class GiftingService:
             raise ValueError(f"Cannot activate gift with status '{gift.status}'")
 
         triggered_items = []
+        any_existing = False
         today = date.today()
 
         ceiling_config = await load_setting(self.db, "default_price_ceiling_pct")
@@ -144,6 +319,8 @@ class GiftingService:
                 )
             )
             if existing.scalar_one_or_none():
+                # Already activated
+                any_existing = True
                 continue
 
             sub = LifetimeSubscription(
@@ -168,10 +345,12 @@ class GiftingService:
                 "end_date": str(end_date),
             })
 
-        if not triggered_items:
+        if not triggered_items and not any_existing and gift.payment_status == "pending":
             raise ValueError("No items are ready for activation yet (age trigger not reached)")
 
-        await self.db.flush()
+        gift.payment_status = "paid"
+        await self.db.commit()
+        
         return {
             "gift_order_id": str(gift.id),
             "subscriptions_created": len(triggered_items),

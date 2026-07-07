@@ -17,6 +17,7 @@ interface Subscription {
   source: string
   pause_after_next_delivery?: boolean
   product?: { name: string; unit_size: string }
+  is_received_gift?: boolean
 }
 
 interface SubstitutionEvent {
@@ -40,12 +41,18 @@ export default function SubscriptionsPage() {
   async function load() {
     setLoading(true)
     try {
-      const [subsData, methodsData, substitutionsData] = await Promise.all([
+      const [subsData, methodsData, substitutionsData, giftedSubsData] = await Promise.all([
         apiClient('/subscriptions/').catch(() => []),
         apiClient('/payments/methods').catch(() => []),
-        apiClient('/price-protection/substitutions/me').catch(() => [])
+        apiClient('/price-protection/substitutions/me').catch(() => []),
+        apiClient('/gifting/received/subscriptions').catch(() => [])
       ])
-      setSubs(Array.isArray(subsData) ? subsData : [])
+      
+      const mySubs = Array.isArray(subsData) ? subsData : []
+      const giftedSubs = Array.isArray(giftedSubsData) ? giftedSubsData : []
+      giftedSubs.forEach(s => { s.is_received_gift = true })
+      
+      setSubs([...mySubs, ...giftedSubs])
       setHasPaymentMethod(methodsData && methodsData.length > 0)
       setSubstitutions(Array.isArray(substitutionsData) ? substitutionsData : [])
     } catch { } finally { setLoading(false) }
@@ -117,6 +124,9 @@ export default function SubscriptionsPage() {
                       {sub.source === 'ai_generated' && (
                         <span className="ml-2 text-accent font-semibold">· Suggested</span>
                       )}
+                      {sub.is_received_gift && (
+                        <span className="ml-2 text-purple-600 font-semibold">· Gifted to You</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -134,18 +144,20 @@ export default function SubscriptionsPage() {
                   </span>
                   {(sub.status === 'active' || sub.status === 'paused') && (
                     <button
+                      title={sub.is_received_gift ? "Gifts can only be modified by the sender" : ""}
                       onClick={() => {
+                        if (sub.is_received_gift) return;
                         if (sub.status === 'paused') {
                           setConfirmSub(sub)
                         } else if (sub.status === 'active' && !sub.pause_after_next_delivery) {
                           setPauseSub(sub)
                         }
                       }}
-                      disabled={actionLoading === sub.id || Boolean(sub.pause_after_next_delivery)}
+                      disabled={actionLoading === sub.id || Boolean(sub.pause_after_next_delivery) || Boolean(sub.is_received_gift)}
                       className={`p-2 rounded-lg transition-all ${sub.status === 'active'
                           ? 'bg-amber-50 text-amber-600 hover:bg-amber-100'
                           : 'bg-green-50 text-green-600 hover:bg-green-100'
-                        }`}
+                        } ${sub.is_received_gift ? 'opacity-30 cursor-not-allowed' : ''}`}
                     >
                       {actionLoading === sub.id ? <Loader2 className="w-4 h-4 animate-spin" /> :
                         sub.status === 'active' ? <Pause className="w-4 h-4" /> :

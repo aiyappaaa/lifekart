@@ -60,6 +60,25 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_optional(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    if not credentials:
+        return None
+    try:
+        payload = verify_access_token(credentials.credentials)
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        user_uuid = uuid.UUID(user_id)
+        service = AuthService(db)
+        return await service.get_current_user(user_uuid)
+    except (ValueError, Exception):
+        return None
+
+
 def require_role(*allowed_roles: str | UserRole):
     async def role_checker(current_user: User = Depends(get_current_user)) -> User:
         if current_user.role not in allowed_roles:

@@ -1,7 +1,11 @@
 from datetime import datetime, timedelta, timezone
 
+import base64
+import hashlib
+
 import bcrypt
 from jose import JWTError, jwt
+from cryptography.fernet import Fernet
 
 from app.core.config import settings
 
@@ -59,3 +63,23 @@ def verify_refresh_token(token: str) -> dict:
     if payload.get("type") != "refresh":
         raise ValueError("Token is not a refresh token")
     return payload
+
+
+def _get_fernet() -> Fernet:
+    key = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
+    return Fernet(base64.urlsafe_b64encode(key))
+
+
+def encrypt_data(data: str | None) -> str | None:
+    if not data:
+        return data
+    return _get_fernet().encrypt(data.encode()).decode()
+
+
+def decrypt_data(token: str | None) -> str | None:
+    if not token:
+        return token
+    try:
+        return _get_fernet().decrypt(token.encode()).decode()
+    except Exception:
+        return token

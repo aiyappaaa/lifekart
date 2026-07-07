@@ -20,7 +20,7 @@ class LegacyNominee(Base):
     nominee_relationship: Mapped[str] = mapped_column(String(30), nullable=False)
     nominee_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     nominee_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    nominee_aadhaar: Mapped[Optional[str]] = mapped_column(String(12), nullable=True)
+    nominee_aadhaar: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     verification_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
@@ -58,6 +58,7 @@ class LegacyActivation(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending_verification")
     death_certificate_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     activation_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -66,3 +67,10 @@ class LegacyActivation(Base):
     successor_nominee = relationship(
         "LegacyNominee", back_populates="legacy_activations", foreign_keys=[successor_nominee_id]
     )
+    original_user = relationship(
+        "User", primaryjoin="LegacyActivation.original_user_id == User.id", foreign_keys=[original_user_id]
+    )
+
+    @property
+    def deceased_email(self):
+        return self.original_user.email if self.original_user else "Unknown"

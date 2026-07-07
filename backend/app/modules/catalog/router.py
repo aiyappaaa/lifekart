@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.modules.users.dependencies import get_current_user, require_role
+from app.modules.users.dependencies import get_current_user, get_current_user_optional, require_role
 from app.modules.users.models import User, UserRole
 from app.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -174,6 +174,7 @@ async def list_products(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ):
     service = CatalogService(db)
     return await service.get_products(
@@ -181,6 +182,7 @@ async def list_products(
         manufacturer_id=manufacturer_id,
         skip=skip,
         limit=limit,
+        user_id=current_user.id if current_user else None
     )
 
 
@@ -188,10 +190,11 @@ async def list_products(
 async def get_product(
     product_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ):
     service = CatalogService(db)
     try:
-        return await service.get_product_by_id(product_id)
+        return await service.get_product_by_id(product_id, user_id=current_user.id if current_user else None)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 

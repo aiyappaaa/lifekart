@@ -17,6 +17,9 @@ class GiftOrder(Base):
     benefactor_household_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("households.id"), nullable=False, index=True
     )
+    recipient_household_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("households.id"), nullable=True, index=True
+    )
     beneficiary_name: Mapped[str] = mapped_column(String(255), nullable=False)
     beneficiary_dob: Mapped[date] = mapped_column(Date, nullable=False)
     beneficiary_relationship: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -25,6 +28,9 @@ class GiftOrder(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     total_value_locked: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 2), nullable=True)
     payment_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    
+    recipient_address: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     stripe_payment_intent_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

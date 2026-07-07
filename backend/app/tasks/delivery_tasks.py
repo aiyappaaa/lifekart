@@ -55,14 +55,22 @@ def process_daily_deliveries():
 
                     product.stock_quantity -= filled
 
-                    household = sub.household
-                    address = {
-                        "line1": household.address_line1,
-                        "line2": household.address_line2,
-                        "city": household.city,
-                        "state": household.state,
-                        "pincode": household.pincode,
-                    } if household else {}
+                    if sub.source == "gift" and not getattr(sub, 'delivery_address_override', None):
+                        # Skip processing gifts until the recipient claims it and provides an address
+                        skipped += 1
+                        continue
+
+                    if getattr(sub, 'delivery_address_override', None):
+                        address = sub.delivery_address_override
+                    else:
+                        household = sub.household
+                        address = {
+                            "line1": household.address_line1,
+                            "line2": household.address_line2,
+                            "city": household.city,
+                            "state": household.state,
+                            "pincode": household.pincode,
+                        } if household else {}
 
                     delivery = DeliveryEvent(
                         subscription_id=sub.id,

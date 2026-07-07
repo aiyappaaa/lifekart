@@ -19,11 +19,9 @@ class SystemSetting(Base):
 DEFAULTS: dict[str, dict[str, Any]] = {
     "community_discount_tiers": {
         "tiers": [
-            {"threshold": 100, "discount_pct": 5.0},
-            {"threshold": 500, "discount_pct": 10.0},
-            {"threshold": 2000, "discount_pct": 15.0},
-            {"threshold": 10000, "discount_pct": 20.0},
-            {"threshold": 50000, "discount_pct": 25.0},
+            {"name": "Micro-Pool", "threshold": 10, "discount_pct": 5.0},
+            {"name": "Block-Pool", "threshold": 50, "discount_pct": 12.0},
+            {"name": "Mega-Pool", "threshold": 100, "discount_pct": 25.0},
         ]
     },
     "dietary_multipliers": {

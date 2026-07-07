@@ -83,6 +83,14 @@ class AnalyticsService:
         today = date.today()
         month_start = today.replace(day=1)
         month_end = (today.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        
+        # Check if a snapshot for this period already exists
+        existing = await self.db.execute(
+            select(PlatformMetricsSnapshot).where(PlatformMetricsSnapshot.period_start == month_start)
+        )
+        if existing.first():
+            return {"status": "snapshot_exists"} 
+
 
         savings_result = await self.db.execute(
             select(
@@ -158,6 +166,23 @@ class AnalyticsService:
             "period": f"{month_start} → {month_end}",
         }
 
+    async def get_historical_kpi_trend(self, limit: int = 6) -> list:
+        result = await self.db.execute(
+            select(PlatformMetricsSnapshot)
+            .order_by(PlatformMetricsSnapshot.recorded_at.desc())
+            .limit(limit)
+        )
+        snapshots = result.scalars().all()
+        # Reverse so the oldest is first for chart rendering
+        return [
+            {
+                "period": str(s.period_start),
+                "savings": float(s.avg_household_monthly_savings),
+                "contracts": s.lifetime_contracts_signed
+            }
+            for s in reversed(snapshots)
+        ]
+
     async def get_latest_platform_kpi(self) -> dict | None:
         result = await self.db.execute(
             select(PlatformMetricsSnapshot)
@@ -198,7 +223,12 @@ class AnalyticsService:
         }
 
     async def get_realtime_admin_metrics(self) -> dict:
-        households_count = await self.db.execute(select(func.count(Household.id)))
+        from app.modules.users.models import User
+        households_count = await self.db.execute(
+            select(func.count(Household.id))
+            .join(User, Household.user_id == User.id)
+            .where(User.is_active == True)
+        )
         corporate_count = await self.db.execute(select(func.count(CorporatePartner.id)).where(CorporatePartner.partnership_status == "active"))
         contracts_count = await self.db.execute(select(func.count(LifetimeSubscription.id)).where(LifetimeSubscription.status == "active"))
         unverified_mfg_count = await self.db.execute(select(func.count(Manufacturer.id)).where(Manufacturer.is_verified == False))

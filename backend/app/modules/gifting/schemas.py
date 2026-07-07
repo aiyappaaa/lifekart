@@ -25,8 +25,13 @@ class GiftOrderCreate(BaseModel):
     @model_validator(mode="after")
     def start_before_end(self):
         from app.core.config import settings
-        if self.end_age > settings.MAX_LIFETIME_YEARS:
-            raise ValueError(f"end_age cannot exceed {settings.MAX_LIFETIME_YEARS} years")
+        from datetime import date
+        today = date.today()
+        dob = self.beneficiary_dob
+        current_age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        
+        if self.end_age - current_age > settings.MAX_LIFETIME_YEARS:
+            raise ValueError(f"Gift duration cannot exceed {settings.MAX_LIFETIME_YEARS} years")
         for item in self.items:
             if item.age_trigger >= self.end_age:
                 raise ValueError(
@@ -63,3 +68,31 @@ class GiftOrderResponse(BaseModel):
     items: list[GiftOrderItemResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+class PublicGiftItemResponse(BaseModel):
+    product_name: str
+    frequency_days: int
+    quantity_per_delivery: float
+
+
+class PublicGiftResponse(BaseModel):
+    id: uuid.UUID
+    beneficiary_name: str
+    start_age: int
+    end_age: int
+    items: list[PublicGiftItemResponse]
+    claimed: bool
+    status: str
+
+
+class AddressSchema(BaseModel):
+    line1: str = Field(min_length=5, max_length=100)
+    line2: str | None = Field(None, max_length=100)
+    city: str = Field(min_length=2, max_length=50)
+    state: str = Field(min_length=2, max_length=50)
+    pincode: str = Field(min_length=6, max_length=10, pattern=r"^[0-9]{6}$")
+
+
+class GiftClaimCreate(BaseModel):
+    address: AddressSchema

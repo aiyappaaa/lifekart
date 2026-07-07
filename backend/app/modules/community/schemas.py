@@ -12,6 +12,7 @@ class CommunityGroupCreate(BaseModel):
     state: str | None = Field(None, max_length=100)
     pincode: str | None = Field(None, max_length=10)
     min_households_for_pooling: int = Field(default=100, ge=10)
+    is_private: bool = Field(default=False)
 
 
 class CommunityGroupResponse(BaseModel):
@@ -23,7 +24,9 @@ class CommunityGroupResponse(BaseModel):
     pincode: str | None
     admin_household_id: uuid.UUID
     min_households_for_pooling: int
+    is_private: bool
     status: str
+    member_count: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -263,14 +263,10 @@ export default function AgreementReviewPage() {
           <ShieldCheck className="w-5 h-5 text-accent" />
           <h3 className="text-lg font-display font-bold uppercase tracking-tight">Lifetime Protection</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
             <p className="font-bold mb-1">Price Ceiling</p>
             <p className="text-white/60">Max {Number(agreement.price_ceiling_agreed || 0)}% annual increase — legally enforceable.</p>
-          </div>
-          <div>
-            <p className="font-bold mb-1">No Cancellation Fees</p>
-            <p className="text-white/60">Cancel any subscription anytime with no penalty.</p>
           </div>
           <div>
             <p className="font-bold mb-1">Auto-Substitution</p>

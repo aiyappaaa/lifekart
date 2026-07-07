@@ -23,13 +23,19 @@ export default function CustomerDashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const [savingsData, subs, household] = await Promise.all([
+        const [savingsData, subs, household, giftedSubsData] = await Promise.all([
           apiClient('/price-protection/savings/me').catch(() => null),
           apiClient('/subscriptions/?status=active').catch(() => []),
           apiClient('/profiling/households/me').catch(() => null),
+          apiClient('/gifting/received/subscriptions').catch(() => []),
         ])
+        
+        const mySubs = Array.isArray(subs) ? subs : []
+        const giftedSubs = Array.isArray(giftedSubsData) ? giftedSubsData : []
+        const activeGifted = giftedSubs.filter(s => s.status === 'active')
+        
         setSavings(savingsData)
-        setSubscriptions(Array.isArray(subs) ? subs : [])
+        setSubscriptions([...mySubs, ...activeGifted])
         setHasHousehold(!!household)
       } catch {} finally { setLoading(false) }
     }

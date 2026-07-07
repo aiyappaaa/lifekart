@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, Numeric, String, func, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,6 +23,7 @@ class CommunityGroup(Base):
         UUID(as_uuid=True), ForeignKey("households.id"), nullable=False, index=True
     )
     min_households_for_pooling: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    is_private: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="forming")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -31,6 +32,10 @@ class CommunityGroup(Base):
 
     memberships = relationship("CommunityMembership", back_populates="group")
     orders = relationship("CommunityOrder", back_populates="group")
+
+    @property
+    def member_count(self) -> int:
+        return len(self.memberships) if self.memberships is not None else 0
 
 
 class CommunityMembership(Base):
@@ -60,7 +65,6 @@ class CommunityOrder(Base):
         UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
     )
     total_quantity: Mapped[float] = mapped_column(Float, nullable=False)
-    per_household_share: Mapped[float] = mapped_column(Float, nullable=False, default=0)
     contributing_households: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     discounted_unit_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
     wholesale_discount_achieved: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2), nullable=True)

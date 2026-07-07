@@ -43,11 +43,21 @@ export default function DeliveriesPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [deliveriesData, subsData] = await Promise.all([
+        const [deliveriesData, subsData, giftedDeliveriesData] = await Promise.all([
           apiClient(`/scheduling/deliveries`).catch(() => []),
-          apiClient(`/price-protection/substitutions/me`).catch(() => [])
+          apiClient(`/price-protection/substitutions/me`).catch(() => []),
+          apiClient(`/gifting/received/deliveries`).catch(() => [])
         ])
-        setDeliveries(Array.isArray(deliveriesData) ? deliveriesData : [])
+        
+        const myDeliveries = Array.isArray(deliveriesData) ? deliveriesData : []
+        const giftedDeliveries = Array.isArray(giftedDeliveriesData) ? giftedDeliveriesData : []
+        
+        // Sort the merged deliveries descending by scheduled_date
+        const merged = [...myDeliveries, ...giftedDeliveries].sort((a, b) => 
+          new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime()
+        )
+        
+        setDeliveries(merged)
         setSubstitutions(Array.isArray(subsData) ? subsData : [])
       } catch {} finally { setLoading(false) }
     }

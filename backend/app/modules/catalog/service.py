@@ -290,6 +290,7 @@ class CatalogService:
         manufacturer_id: uuid.UUID | None = None,
         skip: int = 0,
         limit: int = 50,
+        user_id: uuid.UUID | None = None,
     ) -> list[Product]:
         query = select(Product).options(joinedload(Product.manufacturer)).where(Product.is_active == True)
 
@@ -300,13 +301,40 @@ class CatalogService:
 
         query = query.offset(skip).limit(limit).order_by(Product.name)
         result = await self.db.execute(query)
-        return list(result.scalars().all())
+        products = list(result.scalars().all())
+        
+        discount_rate, discount_tier = None, None
+        if user_id:
+            discount_rate, discount_tier = await self._get_discount_tier(user_id)
+            
+        for product in products:
+            if discount_rate:
+                product.discounted_price = round(product.unit_price_wholesale * (Decimal("1.0") - discount_rate), 2)
+                product.discount_tier_applied = discount_tier
+            else:
+                product.discounted_price = None
+                product.discount_tier_applied = None
+                
+        return products
 
-    async def get_product_by_id(self, product_id: uuid.UUID) -> Product:
-        result = await self.db.execute(select(Product).where(Product.id == product_id))
+    async def get_product_by_id(self, product_id: uuid.UUID, user_id: uuid.UUID | None = None) -> Product:
+        result = await self.db.execute(select(Product).options(joinedload(Product.manufacturer)).where(Product.id == product_id))
         product = result.scalar_one_or_none()
         if not product:
             raise ValueError("Product not found")
+            
+        if user_id:
+            discount_rate, discount_tier = await self._get_discount_tier(user_id)
+            if discount_rate:
+                product.discounted_price = round(product.unit_price_wholesale * (Decimal("1.0") - discount_rate), 2)
+                product.discount_tier_applied = discount_tier
+            else:
+                product.discounted_price = None
+                product.discount_tier_applied = None
+        else:
+            product.discounted_price = None
+            product.discount_tier_applied = None
+            
         return product
 
     async def get_product_by_sku(self, sku: str) -> Product:
@@ -504,3 +532,35 @@ class CatalogService:
 
         await self.db.commit()
         return {"products_processed": len(active_products), "substitutes_created": total}
+
+    async def _get_discount_tier(self, user_id: uuid.UUID) -> tuple[Decimal | None, str | None]:
+        from app.modules.profiling.models import Household
+        from app.modules.community.models import CommunityMembership, CommunityGroup
+        
+        household = await self.db.execute(select(Household).where(Household.user_id == user_id))
+        hh = household.scalar_one_or_none()
+        if not hh:
+            return None, None
+            
+        result = await self.db.execute(
+            select(CommunityGroup.min_households_for_pooling)
+            .join(CommunityMembership, CommunityGroup.id == CommunityMembership.group_id)
+            .where(
+                CommunityMembership.household_id == hh.id,
+                CommunityGroup.status == "active"
+            )
+            .order_by(CommunityGroup.min_households_for_pooling.desc())
+        )
+        max_tier = result.scalar_one_or_none()
+        
+        if not max_tier:
+            return None, None
+            
+        if max_tier >= 100:
+            return Decimal("0.25"), "Mega-Pool (25% Off)"
+        elif max_tier >= 50:
+            return Decimal("0.12"), "Block-Pool (12% Off)"
+        elif max_tier >= 10:
+            return Decimal("0.05"), "Micro-Pool (5% Off)"
+            
+        return None, None

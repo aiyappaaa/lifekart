@@ -12,6 +12,8 @@ from app.modules.legacy.schemas import (
     LegacyNomineeResponse,
     DeathVerificationRequest,
     LegacyActivationResponse,
+    PublicClaimRequest,
+    RejectActivationRequest,
 )
 from app.modules.legacy.service import LegacyService
 
@@ -80,13 +82,26 @@ async def verify_death(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+@router.post("/public-claim", response_model=LegacyActivationResponse, status_code=status.HTTP_201_CREATED)
+async def submit_public_claim(
+    data: PublicClaimRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    service = LegacyService(db)
+    try:
+        return await service.verify_public_claim(data)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
 @router.get("/activations", response_model=list[LegacyActivationResponse])
 async def list_pending_activations(
+    status_filter: str = Query("pending_verification", alias="status"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.SUPERADMIN)),
 ):
     service = LegacyService(db)
-    return await service.get_pending_activations()
+    return await service.get_pending_activations(status_filter=status_filter)
 
 
 @router.post("/activations/{activation_id}/approve", response_model=LegacyActivationResponse)
@@ -98,5 +113,41 @@ async def approve_activation(
     service = LegacyService(db)
     try:
         return await service.approve_activation(activation_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/activations/{activation_id}/reject", response_model=LegacyActivationResponse)
+async def reject_activation(
+    activation_id: uuid.UUID,
+    data: RejectActivationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.SUPERADMIN)),
+):
+    service = LegacyService(db)
+    try:
+        return await service.reject_activation(activation_id, data.rejection_reason)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/admin/nominees", response_model=list[LegacyNomineeResponse])
+async def list_pending_nominees(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.SUPERADMIN)),
+):
+    service = LegacyService(db)
+    return await service.get_pending_nominees()
+
+
+@router.post("/admin/nominees/{nominee_id}/verify", response_model=LegacyNomineeResponse)
+async def verify_nominee(
+    nominee_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.SUPERADMIN)),
+):
+    service = LegacyService(db)
+    try:
+        return await service.verify_nominee(nominee_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

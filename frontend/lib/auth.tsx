@@ -16,8 +16,8 @@ interface AuthState {
   accessToken: string | null
   refreshToken: string | null
   isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
-  register: (data: RegisterData) => Promise<void>
+  login: (email: string, password: string, redirect?: boolean) => Promise<void>
+  register: (data: RegisterData, redirect?: boolean) => Promise<void>
   logout: () => void
 }
 
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false)
   }, [])
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, redirect: boolean = true) => {
     const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -70,10 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRefreshToken(data.refresh_token)
     setUser(data.user)
     localStorage.setItem('auth_tokens', JSON.stringify(data))
-    router.push('/#categories')
+    if (redirect) {
+      router.push('/#categories')
+    }
   }, [router])
 
-  const register = useCallback(async (data: RegisterData) => {
+  const register = useCallback(async (data: RegisterData, redirect: boolean = true) => {
     const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -83,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const err = await res.json().catch(() => ({ detail: 'Registration failed' }))
       throw new Error(err.detail || 'Registration failed')
     }
-    await login(data.email, data.password)
+    await login(data.email, data.password, redirect)
   }, [login])
 
   const logout = useCallback(() => {

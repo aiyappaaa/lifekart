@@ -27,6 +27,11 @@ class AuthService:
         if existing.scalar_one_or_none():
             raise ValueError("A user with this email already exists")
 
+        if data.phone:
+            existing_phone = await self.db.execute(select(User).where(User.phone == data.phone))
+            if existing_phone.scalar_one_or_none():
+                raise ValueError("A user with this phone number already exists")
+
         user = User(
             email=data.email,
             phone=data.phone,
