@@ -10,16 +10,23 @@ export const metadata: Metadata = {
   description: 'Lock in wholesale prices for 60 years. Bulk essentials delivered to your doorstep at manufacturer rates.',
 }
 
+import { GoogleOAuthProvider } from '@react-oauth/google'
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Read dynamically from env file
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""
+  
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col">
-        <AuthProvider>
-          <Navbar />
-          <main className="flex-1">{children}</main>
-          <Footer />
-          <Toaster richColors position="top-right" />
-        </AuthProvider>
+        <GoogleOAuthProvider clientId={clientId}>
+          <AuthProvider>
+            <Navbar />
+            <main className="flex-1">{children}</main>
+            <Footer />
+            <Toaster richColors position="top-right" />
+          </AuthProvider>
+        </GoogleOAuthProvider>
       </body>
     </html>
   )

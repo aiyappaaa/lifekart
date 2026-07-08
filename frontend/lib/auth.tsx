@@ -17,6 +17,7 @@ interface AuthState {
   refreshToken: string | null
   isLoading: boolean
   login: (email: string, password: string, redirect?: boolean) => Promise<void>
+  googleLogin: (credential: string, redirect?: boolean) => Promise<void>
   register: (data: RegisterData, redirect?: boolean) => Promise<void>
   logout: () => void
 }
@@ -61,17 +62,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Invalid credentials' }))
+    if (res.ok) {
+      const data = await res.json()
+      setAccessToken(data.access_token)
+      setRefreshToken(data.refresh_token)
+      setUser(data.user)
+      localStorage.setItem('auth_tokens', JSON.stringify(data))
+      if (redirect) {
+        if (data.user.role === 'customer') {
+          router.push('/dashboard/customer')
+        } else if (data.user.role === 'manufacturer') {
+          router.push('/dashboard/manufacturer')
+        } else if (data.user.role === 'corporate_admin') {
+          router.push('/dashboard/corporate')
+        } else if (data.user.role === 'superadmin') {
+          router.push('/dashboard/admin')
+        }
+      }
+    } else {
+      const err = await res.json()
       throw new Error(err.detail || 'Login failed')
     }
-    const data = await res.json()
-    setAccessToken(data.access_token)
-    setRefreshToken(data.refresh_token)
-    setUser(data.user)
-    localStorage.setItem('auth_tokens', JSON.stringify(data))
-    if (redirect) {
-      router.push('/#categories')
+  }, [router])
+
+  const googleLogin = useCallback(async (credential: string, redirect: boolean = true) => {
+    const res = await fetch(`${API_BASE}/api/v1/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential }),
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      localStorage.setItem('auth_tokens', JSON.stringify(data))
+      setAccessToken(data.access_token)
+      setRefreshToken(data.refresh_token)
+      setUser(data.user)
+      if (redirect) {
+        if (data.user.role === 'customer') {
+          router.push('/dashboard/customer')
+        } else if (data.user.role === 'manufacturer') {
+          router.push('/dashboard/manufacturer')
+        } else if (data.user.role === 'corporate_admin') {
+          router.push('/dashboard/corporate')
+        } else if (data.user.role === 'superadmin') {
+          router.push('/dashboard/admin')
+        }
+      }
+    } else {
+      const err = await res.json()
+      throw new Error(err.detail || 'Google Login failed')
     }
   }, [router])
 
@@ -97,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router])
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, refreshToken, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, accessToken, refreshToken, isLoading, login, googleLogin, register, logout }}>
       {children}
     </AuthContext.Provider>
   )

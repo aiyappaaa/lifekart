@@ -4,9 +4,10 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Loader2, Package } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
+import { GoogleLogin } from '@react-oauth/google'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, googleLogin } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -97,6 +98,39 @@ export default function LoginPage() {
               </>
             )}
           </button>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-surface-border"></span>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-gray-500 font-bold">Or continue with</span>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={async (credentialResponse) => {
+                if (credentialResponse.credential) {
+                  setError('')
+                  setLoading(true)
+                  try {
+                    await googleLogin(credentialResponse.credential)
+                  } catch (err: any) {
+                    setError(err.message)
+                  } finally {
+                    setLoading(false)
+                  }
+                }
+              }}
+              onError={() => {
+                setError('Google Login Failed')
+              }}
+              shape="pill"
+              text="continue_with"
+              width="350px"
+            />
+          </div>
 
           <p className="text-center text-sm text-gray-500">
             Don&apos;t have an account?{' '}

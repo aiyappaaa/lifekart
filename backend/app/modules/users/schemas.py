@@ -25,6 +25,9 @@ class UserLoginRequest(BaseModel):
     email: EmailStr
     password: str
 
+class GoogleLoginRequest(BaseModel):
+    credential: str
+
 
 class UserResponse(BaseModel):
     id: uuid.UUID

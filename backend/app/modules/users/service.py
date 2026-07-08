@@ -1,4 +1,7 @@
 import uuid
+import secrets
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -64,6 +67,47 @@ class AuthService:
             expires_in=30 * 60,
             user=UserResponse.model_validate(user),
         )
+
+    async def google_login(self, credential: str) -> TokenResponse:
+        from app.core.config import settings
+        try:
+            # Specify the CLIENT_ID of the app that accesses the backend
+            idinfo = id_token.verify_oauth2_token(
+                credential, requests.Request(), settings.GOOGLE_CLIENT_ID if hasattr(settings, 'GOOGLE_CLIENT_ID') else None, clock_skew_in_seconds=10
+            )
+
+            email = idinfo['email']
+            name = idinfo.get('name', 'Google User')
+
+            result = await self.db.execute(select(User).where(User.email == email))
+            user = result.scalar_one_or_none()
+
+            if not user:
+                # Register new user automatically
+                user = User(
+                    email=email,
+                    full_name=name,
+                    role="customer",
+                    hashed_password=hash_password(secrets.token_urlsafe(32)),
+                )
+                self.db.add(user)
+                await self.db.flush()
+                await self.db.refresh(user)
+            elif not user.is_active:
+                raise ValueError("Account is deactivated")
+
+            access_token = create_access_token(str(user.id), user.role)
+            refresh_token = create_refresh_token(str(user.id))
+
+            return TokenResponse(
+                access_token=access_token,
+                refresh_token=refresh_token,
+                expires_in=30 * 60,
+                user=UserResponse.model_validate(user),
+            )
+        except ValueError as e:
+            # Invalid token
+            raise ValueError(f"Invalid Google token: {str(e)}")
 
     async def get_current_user(self, user_id: uuid.UUID) -> User:
         result = await self.db.execute(select(User).where(User.id == user_id))

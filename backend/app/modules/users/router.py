@@ -8,6 +8,7 @@ from app.modules.users.schemas import (
     RefreshTokenRequest,
     TokenResponse,
     UserLoginRequest,
+    GoogleLoginRequest,
     UserRegisterRequest,
     UserResponse,
     UserUpdateRole,
@@ -37,6 +38,16 @@ async def login(data: UserLoginRequest, db: AsyncSession = Depends(get_db)):
         return token
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
+@router.post("/google", response_model=TokenResponse)
+async def google_login(data: GoogleLoginRequest, db: AsyncSession = Depends(get_db)):
+    service = AuthService(db)
+    try:
+        token = await service.google_login(data.credential)
+        return token
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
 
 
 @router.post("/refresh", response_model=TokenResponse)
