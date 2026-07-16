@@ -123,7 +123,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Registration failed' }))
-      throw new Error(err.detail || 'Registration failed')
+      let errorMessage = 'Registration failed'
+      if (err.detail) {
+        if (typeof err.detail === 'string') errorMessage = err.detail
+        else if (Array.isArray(err.detail)) errorMessage = err.detail.map((e: any) => e.msg || JSON.stringify(e)).join(', ')
+        else errorMessage = JSON.stringify(err.detail)
+      }
+      throw new Error(errorMessage)
     }
     await login(data.email, data.password, redirect)
   }, [login])
