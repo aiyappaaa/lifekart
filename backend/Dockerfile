@@ -24,7 +24,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 
 COPY app/ app/
 COPY alembic/ alembic/
-COPY alembic.ini . 2>/dev/null || true
+COPY alembic.ini .
 COPY scripts/ scripts/
 COPY docs/ docs/
 
