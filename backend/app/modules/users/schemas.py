@@ -15,9 +15,10 @@ class UserRegisterRequest(BaseModel):
     @classmethod
     def validate_phone(cls, v: str | None) -> str | None:
         if v is not None:
-            v = v.strip().replace(" ", "")
-            if not v.isdigit():
-                raise ValueError("Phone must contain only digits")
+            v = v.strip().replace(" ", "").replace("-", "")
+            check_v = v[1:] if v.startswith("+") else v
+            if not check_v.isdigit():
+                raise ValueError("Phone must contain only digits and an optional leading +")
         return v
 
 
