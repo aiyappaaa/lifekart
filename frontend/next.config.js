@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: process.env.DOCKER_BUILD === '1' ? 'standalone' : undefined,
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
@@ -13,5 +12,9 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
 };
+
+if (process.env.DOCKER_BUILD === '1') {
+  nextConfig.output = 'standalone';
+}
 
 module.exports = nextConfig;
