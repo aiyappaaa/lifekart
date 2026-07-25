@@ -1,32 +1,36 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:pretty_dio_logger/pretty_dio_logger.dart';
+import 'token_interceptor.dart';
 
-final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient();
+final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
+  return const FlutterSecureStorage();
 });
 
-class ApiClient {
-  late Dio _dio;
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+final apiClientProvider = Provider<Dio>((ref) {
+  final storage = ref.watch(secureStorageProvider);
+  
+  final dio = Dio(BaseOptions(
+    baseUrl: 'http://10.0.2.2:8000/api/v1',
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 15),
+    contentType: 'application/json',
+  ));
 
-  ApiClient() {
-    _dio = Dio(BaseOptions(
-      baseUrl: 'http://localhost:8000/api/v1', // Web/Desktop localhost
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-    ));
+  dio.interceptors.add(TokenInterceptor(dio, storage));
 
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await _storage.read(key: 'jwt_token');
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        return handler.next(options);
-      },
+  if (kDebugMode) {
+    dio.interceptors.add(PrettyDioLogger(
+      requestHeader: true,
+      requestBody: true,
+      responseBody: true,
+      responseHeader: false,
+      error: true,
+      compact: true,
     ));
   }
 
-  Dio get dio => _dio;
-}
+  return dio;
+});
