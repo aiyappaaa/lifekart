@@ -4,7 +4,7 @@ import '../core/network/api_client.dart';
 final manufacturerProfileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final api = ref.watch(apiClientProvider);
   try {
-    final response = await api.dio.get('/portal/manufacturer/profile');
+    final response = await api.get('/portal/manufacturer/profile');
     return response.data as Map<String, dynamic>;
   } catch (e) {
     return {};
@@ -14,7 +14,7 @@ final manufacturerProfileProvider = FutureProvider<Map<String, dynamic>>((ref) a
 final manufacturerAnalyticsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final api = ref.watch(apiClientProvider);
   try {
-    final response = await api.dio.get('/portal/manufacturer/analytics');
+    final response = await api.get('/portal/manufacturer/analytics');
     return response.data as Map<String, dynamic>;
   } catch (e) {
     return {};
@@ -24,7 +24,7 @@ final manufacturerAnalyticsProvider = FutureProvider<Map<String, dynamic>>((ref)
 final manufacturerProductsProvider = FutureProvider<List<dynamic>>((ref) async {
   final api = ref.watch(apiClientProvider);
   try {
-    final response = await api.dio.get('/portal/manufacturer/products');
+    final response = await api.get('/portal/manufacturer/products');
     return response.data as List<dynamic>;
   } catch (e) {
     return [];

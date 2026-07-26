@@ -24,10 +24,10 @@ class AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  final ApiClient _apiClient;
+  final Dio _dio;
   final _storage = const FlutterSecureStorage();
 
-  AuthNotifier(this._apiClient) : super(AuthState()) {
+  AuthNotifier(this._dio) : super(AuthState()) {
     _checkInitialAuth();
   }
 
@@ -46,13 +46,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> login(String email, String password) async {
     state = state.copyWith(isLoading: true);
     try {
-      final response = await _apiClient.dio.post('/auth/login', data: {
-        'username': email,
+      final response = await _dio.post('/auth/login', data: {
+        'email': email,
         'password': password,
-      }, options: Options(contentType: Headers.formUrlEncodedContentType));
+      });
       
       final token = response.data['access_token'];
-      final userResponse = await _apiClient.dio.get(
+      final userResponse = await _dio.get(
         '/auth/me',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
@@ -65,6 +65,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     } catch (e) {
       print('Login error: $e');
+      state = state.copyWith(isLoading: false);
+      return false;
+    }
+  }
+
+  Future<bool> register(String email, String password, String name) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await _dio.post('/auth/register', data: {
+        'email': email,
+        'password': password,
+        'full_name': name,
+        'role': 'customer',
+      });
+      return await login(email, password);
+    } catch (e) {
+      print('Registration error: $e');
       state = state.copyWith(isLoading: false);
       return false;
     }
