@@ -71,4 +71,10 @@ class AppTypography {
     fontWeight: FontWeight.normal,
     color: AppColors.textSecondary,
   );
+
+  // Convenience aliases (referenced by feature screens)
+  static final TextStyle h1 = displayLarge;
+  static final TextStyle h2 = headlineMedium;
+  static final TextStyle h3 = titleLarge;
+  static final TextStyle bodyText = bodyMedium;
 }

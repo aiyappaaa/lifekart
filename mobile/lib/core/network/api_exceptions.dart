@@ -10,7 +10,7 @@ class ApiException implements Exception {
   factory ApiException.fromDioError(DioException error) {
     int? code = error.response?.statusCode;
     dynamic data = error.response?.data;
-    String message = data?['message'] ?? error.message ?? 'Unknown error occurred';
+    String message = data?['detail'] ?? data?['message'] ?? error.message ?? 'Unknown error occurred';
 
     if (error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.receiveTimeout ||

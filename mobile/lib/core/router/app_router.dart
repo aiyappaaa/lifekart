@@ -24,12 +24,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (isLoggingIn && isLoggedIn) {
         // Redirect based on role
-        switch (authState.role) {
+        switch (authState.role?.toUpperCase()) {
           case 'CUSTOMER':
             return '/customer';
           case 'SUPERADMIN':
             return '/superadmin';
           case 'CORPORATE_ADMIN':
+          case 'CORPORATEADMIN':
             return '/corporate';
           case 'MANUFACTURER':
             return '/manufacturer';

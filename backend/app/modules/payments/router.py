@@ -172,7 +172,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 await service.handle_setup_intent_succeeded(
                     setup_intent_id=data.id,
                     payment_method_id=data.payment_method,
-                    household_id_str=getattr(data.metadata, 'household_id', '')
+                    household_id_str=data.metadata.get('household_id', '')
                 )
         elif event.type == "invoice.created":
             pass # Safely ignore because we handle payment succeeded

@@ -46,4 +46,21 @@ class AppColors {
 
   static const Color glassWhite10 = Color(0x1AFFFFFF);
   static const Color glassWhite20 = Color(0x33FFFFFF);
+
+  // Convenience aliases (referenced by shared widgets)
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color black = Color(0xFF000000);
+  static const Color primaryDark = Color(0xFFD94200);
+
+  static const Color success = successText;
+  static const Color danger = dangerText;
+
+  static const Color successLight = successBg;
+  static const Color successDark = successText;
+  static const Color warningLight = warningBg;
+  static const Color warningDark = warningText;
+  static const Color dangerLight = dangerBg;
+  static const Color dangerDark = dangerText;
+  static const Color infoLight = infoBg;
+  static const Color infoDark = infoText;
 }

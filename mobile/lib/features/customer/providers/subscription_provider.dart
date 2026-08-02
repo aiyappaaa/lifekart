@@ -42,8 +42,8 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final apiClient = ref.read(apiClientProvider);
-      final subsResponse = await apiClient.get('/api/v1/subscriptions/me');
-      final suggResponse = await apiClient.get('/api/v1/subscriptions/suggestions');
+      final subsResponse = await apiClient.get('/subscriptions/me');
+      final suggResponse = await apiClient.get('/subscriptions/suggestions');
       
       final subs = (subsResponse.data['subscriptions'] as List)
           .map((e) => LifetimeSubscription.fromJson(e))
@@ -65,7 +65,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
   Future<void> pauseSubscription(String id) async {
     try {
       final apiClient = ref.read(apiClientProvider);
-      await apiClient.post('/api/v1/subscriptions/$id/pause');
+      await apiClient.post('/subscriptions/$id/pause');
       await fetchData();
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -75,7 +75,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
   Future<void> resumeSubscription(String id) async {
     try {
       final apiClient = ref.read(apiClientProvider);
-      await apiClient.post('/api/v1/subscriptions/$id/resume');
+      await apiClient.post('/subscriptions/$id/resume');
       await fetchData();
     } catch (e) {
       state = state.copyWith(error: e.toString());

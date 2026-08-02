@@ -60,7 +60,7 @@ export const platformStats: Stat[] = [
 ]
 
 export const navLinks = [
-  { label: 'Categories', href: '#categories' },
-  { label: 'How It Works', href: '#how-it-works' },
-  { label: 'For Business', href: '#business' },
+  { label: 'Categories', href: '/#categories' },
+  { label: 'How It Works', href: '/#how-it-works' },
+  { label: 'For Business', href: '/#business' },
 ]

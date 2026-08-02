@@ -5,7 +5,7 @@ import '../../../shared/models/models.dart';
 
 final agreementProvider = FutureProvider.autoDispose<List<WholesaleAgreement>>((ref) async {
   final apiClient = ref.watch(apiClientProvider);
-  final response = await apiClient.get('/api/v1/agreements/me');
+  final response = await apiClient.get('/agreements/me');
   return (response.data['agreements'] as List)
       .map((e) => WholesaleAgreement.fromJson(e))
       .toList();

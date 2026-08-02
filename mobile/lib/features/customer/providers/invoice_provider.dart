@@ -5,7 +5,7 @@ import '../../../shared/models/models.dart';
 
 final invoiceProvider = FutureProvider.autoDispose<List<Invoice>>((ref) async {
   final apiClient = ref.watch(apiClientProvider);
-  final response = await apiClient.get('/api/v1/invoices/me');
+  final response = await apiClient.get('/invoices/me');
   return (response.data['invoices'] as List)
       .map((e) => Invoice.fromJson(e))
       .toList();

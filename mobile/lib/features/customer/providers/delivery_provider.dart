@@ -42,7 +42,7 @@ class DeliveryNotifier extends StateNotifier<DeliveryState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.get('/api/v1/deliveries/me');
+      final response = await apiClient.get('/deliveries/me');
       
       final upcoming = (response.data['upcoming'] as List)
           .map((e) => DeliveryEvent.fromJson(e))

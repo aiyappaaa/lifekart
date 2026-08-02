@@ -42,7 +42,7 @@ class HouseholdNotifier extends StateNotifier<HouseholdState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.get('/api/v1/profiling/households/me');
+      final response = await apiClient.get('/profiling/households/me');
       final household = Household.fromJson(response.data['household']);
       final membersList = (response.data['members'] as List)
           .map((e) => HouseholdMember.fromJson(e))
@@ -61,7 +61,7 @@ class HouseholdNotifier extends StateNotifier<HouseholdState> {
     try {
       final apiClient = ref.read(apiClientProvider);
       final response = await apiClient.post(
-        '/api/v1/profiling/households/me/members',
+        '/profiling/households/me/members',
         data: member.toJson(),
       );
       final newMember = HouseholdMember.fromJson(response.data);
@@ -75,7 +75,7 @@ class HouseholdNotifier extends StateNotifier<HouseholdState> {
     try {
       final apiClient = ref.read(apiClientProvider);
       final response = await apiClient.put(
-        '/api/v1/profiling/households/me/members/$id',
+        '/profiling/households/me/members/$id',
         data: member.toJson(),
       );
       final updatedMember = HouseholdMember.fromJson(response.data);

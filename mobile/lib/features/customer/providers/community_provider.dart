@@ -42,7 +42,7 @@ class CommunityNotifier extends StateNotifier<CommunityState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.get('/api/v1/communities/me');
+      final response = await apiClient.get('/communities/me');
       final groups = (response.data['groups'] as List)
           .map((e) => CommunityGroup.fromJson(e))
           .toList();
@@ -56,7 +56,7 @@ class CommunityNotifier extends StateNotifier<CommunityState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.get('/api/v1/communities/search?pincode=$pincode');
+      final response = await apiClient.get('/communities/search?pincode=$pincode');
       final results = (response.data['results'] as List)
           .map((e) => CommunityGroup.fromJson(e))
           .toList();

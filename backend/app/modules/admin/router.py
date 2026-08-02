@@ -32,4 +32,4 @@ async def update_setting(key: str, data: SettingUpdate, db: AsyncSession = Depen
     if key in _CACHE:
         del _CACHE[key]
         
-    return {"status": "success", "setting": setting}
+    return {"status": "success", "setting": {"key": setting.key, "value": setting.value}}

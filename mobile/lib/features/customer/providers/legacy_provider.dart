@@ -38,7 +38,7 @@ class LegacyNotifier extends StateNotifier<LegacyState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.get('/api/v1/legacy/nominees');
+      final response = await apiClient.get('/legacy/nominees');
       final list = (response.data['nominees'] as List)
           .map((e) => LegacyNominee.fromJson(e))
           .toList();
@@ -52,7 +52,7 @@ class LegacyNotifier extends StateNotifier<LegacyState> {
     try {
       final apiClient = ref.read(apiClientProvider);
       final response = await apiClient.post(
-        '/api/v1/legacy/nominees',
+        '/legacy/nominees',
         data: nominee.toJson(),
       );
       final newNominee = LegacyNominee.fromJson(response.data);
@@ -66,7 +66,7 @@ class LegacyNotifier extends StateNotifier<LegacyState> {
     try {
       final apiClient = ref.read(apiClientProvider);
       final response = await apiClient.put(
-        '/api/v1/legacy/nominees/$id',
+        '/legacy/nominees/$id',
         data: nominee.toJson(),
       );
       final updatedNominee = LegacyNominee.fromJson(response.data);

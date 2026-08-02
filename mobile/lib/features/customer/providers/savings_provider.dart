@@ -5,6 +5,6 @@ import '../../../shared/models/models.dart';
 
 final savingsProvider = FutureProvider.autoDispose<SavingsData>((ref) async {
   final apiClient = ref.watch(apiClientProvider);
-  final response = await apiClient.get('/api/v1/metrics/savings/me');
+  final response = await apiClient.get('/metrics/savings/me');
   return SavingsData.fromJson(response.data);
 });

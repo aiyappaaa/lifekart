@@ -33,7 +33,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _checkInitialAuth() async {
     state = state.copyWith(isLoading: true);
-    final token = await _storage.read(key: 'jwt_token');
+    final token = await _storage.read(key: 'access_token');
     final role = await _storage.read(key: 'user_role');
     
     if (token != null && role != null) {
@@ -58,7 +58,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       final role = userResponse.data['role'];
 
-      await _storage.write(key: 'jwt_token', value: token);
+      await _storage.write(key: 'access_token', value: token);
       await _storage.write(key: 'user_role', value: role);
 
       state = state.copyWith(isAuthenticated: true, role: role, isLoading: false);
@@ -88,7 +88,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
-    await _storage.delete(key: 'jwt_token');
+    await _storage.delete(key: 'access_token');
     await _storage.delete(key: 'user_role');
     state = AuthState();
   }

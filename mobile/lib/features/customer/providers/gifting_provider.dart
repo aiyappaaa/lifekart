@@ -42,7 +42,7 @@ class GiftingNotifier extends StateNotifier<GiftingState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.get('/api/v1/gifting/me');
+      final response = await apiClient.get('/gifting/me');
       final createdList = (response.data['created'] as List)
           .map((e) => GiftOrder.fromJson(e))
           .toList();

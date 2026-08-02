@@ -148,7 +148,7 @@ class CommunityService:
                 select(CommunityMembership).where(
                     CommunityMembership.group_id == group_id,
                     CommunityMembership.household_id != household.id
-                ).order_by(CommunityMembership.created_at.asc())
+                ).order_by(CommunityMembership.joined_at.asc())
             )
             next_admin_membership = other_members_res.scalars().first()
             
