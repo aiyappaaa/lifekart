@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func
@@ -25,7 +25,7 @@ class DeliveryEvent(Base):
     product_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True
     )
-    scheduled_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    scheduled_date: Mapped[date] = mapped_column(Date, nullable=False)
     actual_delivery_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     quantity: Mapped[float] = mapped_column(Float, nullable=False)
@@ -65,8 +65,8 @@ class PriceProtectionRule(Base):
     )
     ceiling_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     max_annual_increase_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0)
-    effective_from: Mapped[datetime] = mapped_column(Date, nullable=False)
-    effective_to: Mapped[datetime | None] = mapped_column(Date, nullable=True)
+    effective_from: Mapped[date] = mapped_column(Date, nullable=False)
+    effective_to: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     product = relationship("Product")
